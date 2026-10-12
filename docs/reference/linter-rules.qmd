@@ -7,9 +7,9 @@ description: >
 ---
 
 This page documents every built-in lint rule that Panache ships with. Each
-section lists the rule's configuration name (used in `[lint.rules]`), the
-diagnostic codes the rule may emit at runtime, severity, auto-fix support, and
-any extension or metadata requirements.
+section lists the rule's configuration name (used in `[lint]` selection lists),
+the diagnostic codes the rule may emit at runtime, severity, auto-fix support,
+and any extension or metadata requirements.
 
 For a user-friendly introduction to the linter, CLI usage, and configuration,
 see the [Linting guide](../guide/linting.qmd).
@@ -395,7 +395,7 @@ Severity
 :   Warning
 
 Default
-:   Off. Opt in via `[lint.rules] heading-strip-comments-residue = true`.
+:   Off. Opt in via `[lint] extend-select = ["heading-strip-comments-residue"]`.
 
 Auto-fix
 :   No
@@ -2045,7 +2045,7 @@ Description
     dollar, and `\left`/`\right` delimiter nesting. Because a macro can expand to
     braces or an environment the structural parser cannot see, valid TeX can
     occasionally look unbalanced; in that rare case disable the rule with
-    `[lint.rules] math-syntax     = false` or an ignore directive.
+    `[lint] ignore = ["math-syntax"]` or an ignore directive.
 
 **Example violation:**
 
@@ -2186,7 +2186,7 @@ Severity
 :   Warning
 
 Default
-:   Off---opt in via `[lint.rules] quarto-schema-unknown-key = true`.
+:   Off---opt in via `[lint] extend-select = ["quarto-schema-unknown-key"]`.
 
 Auto-fix
 :   No

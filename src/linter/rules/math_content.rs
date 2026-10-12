@@ -84,7 +84,7 @@ impl Rule for MathContentRule {
 /// Malformed math is build-breaking — `quarto render` to PDF hard-fails on an
 /// unclosed brace or mismatched environment, and MathJax/KaTeX silently drop the
 /// equation. So these ride at `Error` severity. The rule stays suppressible via
-/// `[lint.rules] math-syntax = false` (or an ignore directive) for the rare
+/// `[lint] ignore = ["math-syntax"]` (or an ignore directive) for the rare
 /// macro-expanded TeX that only *looks* unbalanced to a structural parser.
 fn describe(kind: MathDiagnosticKind) -> (&'static str, &'static str) {
     match kind {

@@ -385,11 +385,19 @@ pub struct ExperimentalConfig {
     pub format_math: Option<bool>,
 }
 
-/// Linter configuration.
-/// Preferred shape is `[lint.rules] rule-name = true/false`.
-/// Legacy `[lint] rule-name = true/false` is still supported (deprecated).
+/// Linter configuration with exact rule-name selection.
 #[derive(Debug, Clone, Serialize, PartialEq, Default)]
+#[serde(rename_all = "kebab-case")]
 pub struct LintConfig {
+    /// Replace the default rule set when supplied, including an empty list.
+    pub select: Option<Vec<String>>,
+    /// Add rules to the defaults or explicit selection.
+    pub extend_select: Vec<String>,
+    /// Disable rules after applying selection and additions.
+    pub ignore: Vec<String>,
+    /// Deprecated boolean overrides, retained for configuration compatibility.
+    // TODO: Remove `[lint.rules]` boolean tables in the next major release on
+    // or after 2027-04-12, at least six months after their deprecation.
     pub rules: HashMap<String, bool>,
     /// Resolved Quarto compatibility target for the `quarto-schema` rule.
     ///
@@ -411,20 +419,57 @@ impl LintConfig {
             .into_iter()
             .map(|(name, enabled)| (Self::normalize_rule_name(&name), enabled))
             .collect();
+        for names in self
+            .select
+            .iter_mut()
+            .chain([&mut self.extend_select, &mut self.ignore])
+        {
+            for name in names {
+                *name = Self::normalize_rule_name(name);
+            }
+        }
         self
     }
 
-    pub fn is_rule_enabled(&self, rule_name: &str) -> bool {
+    fn enabled_with_default(&self, rule_name: &str, default: bool) -> bool {
         let normalized = Self::normalize_rule_name(rule_name);
-        self.rules.get(&normalized).copied().unwrap_or(true)
+        let base = match &self.select {
+            Some(selected) => selected.contains(&normalized),
+            None => self.rules.get(&normalized).copied().unwrap_or(default),
+        };
+        (base || self.extend_select.contains(&normalized)) && !self.ignore.contains(&normalized)
     }
 
-    /// Like `is_rule_enabled`, but the default is `false` when the rule is
-    /// absent from the user's config. Use for opt-in rules whose default
-    /// behavior would generate noise for most users.
+    pub fn is_rule_enabled(&self, rule_name: &str) -> bool {
+        self.enabled_with_default(rule_name, true)
+    }
+
+    /// Check selection for an opt-in rule whose default is off.
     pub fn is_rule_explicitly_enabled(&self, rule_name: &str) -> bool {
-        let normalized = Self::normalize_rule_name(rule_name);
-        self.rules.get(&normalized).copied().unwrap_or(false)
+        self.enabled_with_default(rule_name, false)
+    }
+
+    /// Apply command-line settings before linting or computing cache keys.
+    pub fn apply_overrides(
+        &mut self,
+        select: Option<&[String]>,
+        extend_select: &[String],
+        ignore: Option<&[String]>,
+    ) {
+        let normalize = |names: &[String]| {
+            names
+                .iter()
+                .filter(|name| !name.trim().is_empty())
+                .map(|name| Self::normalize_rule_name(name))
+                .collect::<Vec<_>>()
+        };
+        if let Some(select) = select {
+            self.select = Some(normalize(select));
+        }
+        self.extend_select.extend(normalize(extend_select));
+        if let Some(ignore) = ignore {
+            self.ignore = normalize(ignore);
+        }
     }
 }
 
@@ -434,23 +479,35 @@ impl JsonSchema for LintConfig {
     }
 
     fn json_schema(_generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
-        // Two accepted shapes:
-        //   [lint.rules] my-rule = true   (preferred)
-        //   [lint] my-rule = true         (legacy, deprecated)
-        // Modelled as an object whose `rules` field is a string→bool map and
-        // whose additionalProperties are also bools (for the legacy shape).
         schemars::json_schema!({
             "type": "object",
             "description": "Linter configuration.",
             "properties": {
+                "select": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Rule names to enable instead of the defaults. An empty list disables the defaults.",
+                },
+                "extend-select": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Additional rule names to enable alongside the defaults or select.",
+                    "default": [],
+                },
+                "ignore": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Rule names to disable, including those in extend-select.",
+                    "default": [],
+                },
                 "rules": {
                     "type": "object",
-                    "description": "Map of lint rule names to enabled/disabled. \
-                                    Preferred over the legacy flat `[lint]` shape.",
+                    "description": "Deprecated boolean overrides for the default rule set.",
+                    "deprecated": true,
                     "additionalProperties": { "type": "boolean" },
                 },
             },
-            "additionalProperties": { "type": "boolean" },
+            "additionalProperties": false,
         })
     }
 }
@@ -461,16 +518,11 @@ impl<'de> Deserialize<'de> for LintConfig {
         D: Deserializer<'de>,
     {
         let value = toml::Value::deserialize(deserializer)?;
-        let mut rules = HashMap::new();
-
-        let mut table = value
+        let table = value
             .as_table()
             .cloned()
             .ok_or_else(|| serde::de::Error::custom("expected [lint] table"))?;
 
-        // `quarto-version` moved to `[compat] quarto`. Catch the old key with a
-        // pointed migration error rather than the generic "use [lint.rules]"
-        // message the legacy bool loop would otherwise emit.
         if table.contains_key("quarto-version") {
             return Err(serde::de::Error::custom(
                 "[lint] quarto-version moved to [compat] quarto; \
@@ -478,34 +530,34 @@ impl<'de> Deserialize<'de> for LintConfig {
             ));
         }
 
-        // Rules live under [lint.rules]. The legacy flat `[lint] rule = true`
-        // shape was removed in 3.0.
-        if let Some(rules_value) = table.remove("rules") {
-            let rules_table = rules_value
-                .as_table()
-                .ok_or_else(|| serde::de::Error::custom("[lint.rules] must be a table"))?;
-            for (name, enabled) in rules_table {
-                let enabled = enabled.as_bool().ok_or_else(|| {
-                    serde::de::Error::custom(format!(
-                        "[lint.rules] entry '{}' must be true or false",
-                        name
-                    ))
-                })?;
-                rules.insert(name.clone(), enabled);
-            }
+        #[derive(Default, Deserialize)]
+        #[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+        struct Selection {
+            select: Option<Vec<String>>,
+            extend_select: Vec<String>,
+            ignore: Vec<String>,
+            rules: HashMap<String, bool>,
         }
-
-        // Any remaining top-level key is the removed flat shape.
-        if let Some((name, _)) = table.iter().next() {
+        // The flat `[lint] rule = true` shape was already removed in 3.0.
+        if let Some(name) = table.keys().find(|name| {
+            !matches!(
+                name.as_str(),
+                "select" | "extend-select" | "ignore" | "rules"
+            )
+        }) {
             return Err(serde::de::Error::custom(format!(
-                "Unsupported [lint] key '{}'; put rule toggles under [lint.rules]",
+                "Unsupported [lint] key '{}'; use select, extend-select, or ignore",
                 name
             )));
         }
-
+        let selection: Selection = toml::Value::Table(table)
+            .try_into()
+            .map_err(serde::de::Error::custom)?;
         Ok(Self {
-            rules,
-            // Populated later from `[compat] quarto` during finalization.
+            select: selection.select,
+            extend_select: selection.extend_select,
+            ignore: selection.ignore,
+            rules: selection.rules,
             quarto_version: None,
         }
         .normalize())

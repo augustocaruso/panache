@@ -1640,11 +1640,31 @@ fn run() -> io::Result<()> {
         Commands::Lint {
             files,
             check,
+            select,
+            extend_select,
+            ignore,
             fix,
             unsafe_fixes,
             message_format,
             force_exclude,
         } => {
+            let load_lint_config = |start_dir: &Path, input_path: Option<&Path>| {
+                let (mut cfg, source) = load_config_for_cli(
+                    cli.config.as_deref(),
+                    cli.isolated,
+                    cli.cache_dir.as_deref(),
+                    start_dir,
+                    input_path,
+                    cli.flavor.map(Flavor::from),
+                )?;
+                cfg.lint
+                    .apply_overrides(select.as_deref(), &extend_select, ignore.as_deref());
+                Ok::<_, io::Error>((cfg, source))
+            };
+            let load_manifest_config = |path: &Path| {
+                load_lint_config(path.parent().unwrap_or(Path::new(".")), Some(path))
+                    .map(|(cfg, _)| cfg)
+            };
             if check {
                 eprintln!(
                     "Warning: the `--check` flag is deprecated; linting exits non-zero on \
@@ -1664,14 +1684,8 @@ fn run() -> io::Result<()> {
             // Handle stdin case
             if files.is_empty() && manifest_files.is_empty() {
                 let start_dir = start_dir_for(cli.stdin_filename.as_deref())?;
-                let (cfg, cfg_source) = load_config_for_cli(
-                    cli.config.as_deref(),
-                    cli.isolated,
-                    cli.cache_dir.as_deref(),
-                    &start_dir,
-                    cli.stdin_filename.as_deref(),
-                    cli.flavor.map(Flavor::from),
-                )?;
+                let (cfg, cfg_source) =
+                    load_lint_config(&start_dir, cli.stdin_filename.as_deref())?;
 
                 if let Some(path) = cfg_source.path() {
                     log::debug!("Using config from: {}", path.display());
@@ -1695,13 +1709,9 @@ fn run() -> io::Result<()> {
                         || panache::includes::find_quarto_root(&absolute).is_some()
                     {
                         lint_stdin_execution(&input, &cfg, &absolute, |candidate| {
-                            load_config_for_cli(
-                                cli.config.as_deref(),
-                                cli.isolated,
-                                cli.cache_dir.as_deref(),
+                            load_lint_config(
                                 candidate.parent().unwrap_or(Path::new(".")),
                                 Some(candidate),
-                                cli.flavor.map(Flavor::from),
                             )
                             .map(|(cfg, _)| cfg)
                         })?
@@ -1814,14 +1824,8 @@ fn run() -> io::Result<()> {
             } else {
                 start_dir_for(None)?
             };
-            let (traversal_cfg, traversal_cfg_source) = load_config_for_cli(
-                cli.config.as_deref(),
-                cli.isolated,
-                cli.cache_dir.as_deref(),
-                &traversal_start_dir,
-                traversal_anchor,
-                cli.flavor.map(Flavor::from),
-            )?;
+            let (traversal_cfg, traversal_cfg_source) =
+                load_lint_config(&traversal_start_dir, traversal_anchor)?;
             let anchor = panache::config::anchor_dir(&traversal_cfg_source, &traversal_start_dir);
             let expanded_files = expand_paths(
                 &files,
@@ -1895,14 +1899,7 @@ fn run() -> io::Result<()> {
                     );
                     let file_path = absolute_path.as_path();
                     let start_dir = file_path.parent().unwrap_or(Path::new(".")).to_path_buf();
-                    let (mut cfg, cfg_source) = load_config_for_cli(
-                        cli.config.as_deref(),
-                        cli.isolated,
-                        cli.cache_dir.as_deref(),
-                        &start_dir,
-                        Some(file_path),
-                        cli.flavor.map(Flavor::from),
-                    )?;
+                    let (mut cfg, cfg_source) = load_lint_config(&start_dir, Some(file_path))?;
                     // Size the shared external-tool budget from the user-configured
                     // value, then split it across the files processed concurrently.
                     panache::init_external_tool_budget(cfg.external_max_parallel);
@@ -2006,15 +2003,8 @@ fn run() -> io::Result<()> {
                     // selected parent's context, even under a different flavor.
                     let defer_cache = is_project
                         || files.iter().any(|(_, path)| {
-                            load_config_for_cli(
-                                cli.config.as_deref(),
-                                cli.isolated,
-                                cli.cache_dir.as_deref(),
-                                path.parent().unwrap_or(Path::new(".")),
-                                Some(path),
-                                cli.flavor.map(Flavor::from),
-                            )
-                            .is_ok_and(|(cfg, _)| cfg.flavor == Flavor::Quarto)
+                            load_lint_config(path.parent().unwrap_or(Path::new(".")), Some(path))
+                                .is_ok_and(|(cfg, _)| cfg.flavor == Flavor::Quarto)
                         });
                     for (idx, file_path) in files {
                         match prepare(*idx, file_path, &mut db, &mut intern, defer_cache) {
@@ -2085,26 +2075,20 @@ fn run() -> io::Result<()> {
                         }
                     }
 
-                    let execution_batch =
-                        if is_project || jobs.iter().any(|job| job.cfg.flavor == Flavor::Quarto) {
-                            let selected = jobs
-                                .iter()
-                                .map(|job| (job.file_path.clone(), job.file_config))
-                                .collect::<Vec<_>>();
-                            prepare_execution_batch(&mut db, &selected, |path| {
-                                load_config_for_cli(
-                                    cli.config.as_deref(),
-                                    cli.isolated,
-                                    cli.cache_dir.as_deref(),
-                                    path.parent().unwrap_or(Path::new(".")),
-                                    Some(path),
-                                    cli.flavor.map(Flavor::from),
-                                )
+                    let execution_batch = if is_project
+                        || jobs.iter().any(|job| job.cfg.flavor == Flavor::Quarto)
+                    {
+                        let selected = jobs
+                            .iter()
+                            .map(|job| (job.file_path.clone(), job.file_config))
+                            .collect::<Vec<_>>();
+                        prepare_execution_batch(&mut db, &selected, |path| {
+                            load_lint_config(path.parent().unwrap_or(Path::new(".")), Some(path))
                                 .map(|(config, _)| config)
-                            })
-                        } else {
-                            Ok(None)
-                        };
+                        })
+                    } else {
+                        Ok(None)
+                    };
                     let execution_batch = match execution_batch {
                         Ok(batch) => batch,
                         Err(error) => {
@@ -2405,13 +2389,9 @@ fn run() -> io::Result<()> {
             // bypass the document pipeline (and its cache); there are typically
             // only a handful per invocation, so a simple sequential pass is fine.
             for manifest_path in &manifest_files {
-                let manifest_doc = match lint_quarto_manifest(
-                    manifest_path,
-                    cli.config.as_deref(),
-                    cli.isolated,
-                    cli.cache_dir.as_deref(),
-                    cli.flavor.map(Flavor::from),
-                ) {
+                let manifest_doc = match load_manifest_config(manifest_path)
+                    .and_then(|cfg| lint_quarto_manifest(manifest_path, &cfg))
+                {
                     Ok(doc) => doc,
                     Err(err) => {
                         eprintln!("Error: {}: {}", manifest_path.display(), err);
@@ -2458,13 +2438,9 @@ fn run() -> io::Result<()> {
                     }
                 }
                 for manifest_path in discovered {
-                    let manifest_doc = match lint_manifest_bibliography(
-                        &manifest_path,
-                        cli.config.as_deref(),
-                        cli.isolated,
-                        cli.cache_dir.as_deref(),
-                        cli.flavor.map(Flavor::from),
-                    ) {
+                    let manifest_doc = match load_manifest_config(&manifest_path)
+                        .and_then(|cfg| lint_manifest_bibliography(&manifest_path, &cfg))
+                    {
                         Ok(doc) => doc,
                         Err(err) => {
                             eprintln!("Error: {}: {}", manifest_path.display(), err);
@@ -2524,19 +2500,10 @@ struct LintedDocument {
 /// against the Quarto schema. The schema half honors the `quarto-schema` rule
 /// toggle (resolved from config near the manifest); YAML parse errors are always
 /// reported. The caller guarantees `path` is a recognized manifest.
-fn lint_quarto_manifest(
-    path: &Path,
-    config: Option<&Path>,
-    isolated: bool,
-    cache_dir: Option<&Path>,
-    flavor: Option<Flavor>,
-) -> io::Result<LintedDocument> {
+fn lint_quarto_manifest(path: &Path, cfg: &panache::Config) -> io::Result<LintedDocument> {
     let input = fs::read_to_string(path).with_path(path)?;
     let root = panache::linter::quarto_schema::manifest_schema_root(path)
         .expect("caller only passes recognized manifest paths");
-    let start_dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
-    let (cfg, _cfg_source) =
-        load_config_for_cli(config, isolated, cache_dir, &start_dir, Some(path), flavor)?;
     // The manifest filename detects as Quarto, so `cfg.flavor` is Quarto unless
     // an explicit `--flavor` overrode it; gate the schema half on that (and the
     // rule toggles) so the CLI and LSP agree on when manifests are validated.
@@ -2573,17 +2540,8 @@ fn lint_quarto_manifest(
 /// the bibliographies it declares, anchored to its own `bibliography:` value(s).
 /// Used for manifests discovered during a project (directory) lint, where the
 /// manifest itself is not an explicit target.
-fn lint_manifest_bibliography(
-    path: &Path,
-    config: Option<&Path>,
-    isolated: bool,
-    cache_dir: Option<&Path>,
-    flavor: Option<Flavor>,
-) -> io::Result<LintedDocument> {
+fn lint_manifest_bibliography(path: &Path, cfg: &panache::Config) -> io::Result<LintedDocument> {
     let input = fs::read_to_string(path).with_path(path)?;
-    let start_dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
-    let (cfg, _cfg_source) =
-        load_config_for_cli(config, isolated, cache_dir, &start_dir, Some(path), flavor)?;
     let diagnostics = if cfg.extensions.citations && cfg.lint.is_rule_enabled("citation-keys") {
         panache::linter::metadata_diagnostics::manifest_bibliography_diagnostics(path, &input)
     } else {

@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+### Highlights
+
+The linter has been refactored to use a new rule selection system. Configure
+rules with `[lint] select`, `extend-select`, and `ignore`. `select` replaces
+the defaults, `extend-select` adds rules, and `ignore` disables rules. The CLI
+also accepts `--select`, `--extend-select`, and `--ignore`.
+
+The old `[lint.rules]` boolean tables still work but emit a deprecation
+warning. Use `extend-select = ["rule-name"]` instead of `rule-name = true` and
+`ignore = ["rule-name"]` instead of `rule-name = false`. Boolean tables will be
+removed in the next major release on or after April 12, 2027.
+
 ## [3.15.0](https://github.com/jolars/panache/compare/v3.14.0...v3.15.0) (2026-10-09)
 
 ### Features

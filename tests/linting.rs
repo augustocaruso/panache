@@ -1608,3 +1608,32 @@ fn test_table_column_count() {
         flagged[0].message
     );
 }
+
+#[test]
+fn selection_adds_an_opt_in_rule_once_and_keeps_defaults() {
+    let input = "# Title\n\n### Skipped level <!-- comment --> {#id}\n";
+    let config: Config = toml::from_str(
+        "[lint]\nextend-select = [\"heading-strip-comments-residue\", \"heading-strip-comments-residue\"]\n",
+    ).unwrap();
+    let tree = panache::parse(input, Some(config.clone()));
+    let diagnostics = lint(&tree, input, &config);
+    assert!(diagnostics.iter().any(|d| d.code == "heading-hierarchy"));
+    assert_eq!(
+        diagnostics
+            .iter()
+            .filter(|d| d.code == "heading-strip-comments-residue")
+            .count(),
+        1
+    );
+}
+
+#[test]
+fn selection_does_not_override_flavor_or_extension_requirements() {
+    let input = "# Title\n\n### Skipped level <!-- comment --> {#id}\n";
+    let config: Config = toml::from_str(
+        "flavor = \"commonmark\"\n[lint]\nselect = [\"heading-strip-comments-residue\"]\n",
+    )
+    .unwrap();
+    let tree = panache::parse(input, Some(config.clone()));
+    assert!(lint(&tree, input, &config).is_empty());
+}

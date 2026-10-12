@@ -341,6 +341,18 @@ For editor configuration examples, see: https://github.com/jolars/panache#editor
         )]
         files: Vec<PathBuf>,
 
+        /// Rule names to enable instead of the configured defaults
+        #[arg(long, value_delimiter = ',')]
+        select: Option<Vec<String>>,
+
+        /// Additional rule names to enable alongside the configured selection
+        #[arg(long, value_delimiter = ',')]
+        extend_select: Vec<String>,
+
+        /// Rule names to disable, replacing configured ignores
+        #[arg(long, value_delimiter = ',')]
+        ignore: Option<Vec<String>>,
+
         /// Apply auto-fixes
         #[arg(long)]
         #[arg(help = "Automatically fix violations where possible")]

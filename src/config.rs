@@ -126,6 +126,24 @@ fn check_deprecated_blank_lines(s: &str, path: &Path) {
     }
 }
 
+fn check_deprecated_lint_rules(s: &str, path: &Path) {
+    let Ok(value) = toml::from_str::<toml::Value>(s) else {
+        return;
+    };
+    if value
+        .get("lint")
+        .and_then(|lint| lint.get("rules"))
+        .is_some()
+    {
+        eprintln!(
+            "Warning: `[lint.rules]` boolean tables are deprecated in {}. \
+             Move `true` entries to `[lint] extend-select` and `false` entries to `[lint] ignore`. \
+             They will be removed in the next major release on or after 2027-04-12.",
+            path.display()
+        );
+    }
+}
+
 fn check_deprecated_flavor_overrides(s: &str, path: &Path) {
     let Ok(toml_value) = toml::from_str::<toml::Value>(s) else {
         return;
@@ -202,6 +220,7 @@ fn parse_config_str(s: &str, path: &Path) -> io::Result<Config> {
 fn parse_config_detailed(s: &str, path: &Path) -> Result<Config, ConfigError> {
     check_deprecated_blank_lines(s, path);
     check_deprecated_flavor_overrides(s, path);
+    check_deprecated_lint_rules(s, path);
 
     if let Err(msg) = validate_extension_names(s) {
         return Err(ConfigError {
@@ -477,6 +496,7 @@ fn load_merged_toml(path: &Path, chain: &mut Vec<PathBuf>) -> Result<toml::Table
     // Per-file deprecation/validation checks so warnings carry this file's path.
     check_deprecated_blank_lines(&s, path);
     check_deprecated_flavor_overrides(&s, path);
+    check_deprecated_lint_rules(&s, path);
     if let Err(msg) = validate_extension_names(&s) {
         return Err(ConfigError {
             path: path.to_path_buf(),
@@ -536,9 +556,9 @@ fn expand_tilde(path: &str) -> PathBuf {
 
 /// Deep-merge `over` onto `base`, with `over` (the extending, more-derived
 /// config) winning. Sub-tables recurse so a partial override (e.g. one
-/// `[format]` key) keeps the base's sibling keys. The additive `extend-exclude`
-/// / `extend-include` arrays concatenate across the chain. `[flavors]` also
-/// accumulates patterns, with a child assignment moving that pattern from its
+/// `[format]` key) keeps the base's sibling keys. The `extend-exclude`,
+/// `extend-include`, and `extend-select` arrays concatenate across the chain.
+/// `[flavors]` accumulates patterns, with a child assignment moving that pattern from its
 /// inherited flavor. Every other value (scalars, plain `exclude`/`include`
 /// arrays) is replaced.
 fn merge_toml_tables(base: &mut toml::Table, over: toml::Table) {
@@ -561,7 +581,10 @@ fn merge_toml_tables_inner(base: &mut toml::Table, over: toml::Table, root: bool
             }
             continue;
         }
-        let additive = key == "extend-exclude" || key == "extend-include";
+        let additive = matches!(
+            key.as_str(),
+            "extend-exclude" | "extend-include" | "extend-select"
+        );
         let base_val = base.get_mut(&key).expect("key present");
         match over_val {
             toml::Value::Array(over_arr) if additive && base_val.is_array() => {
@@ -2226,11 +2249,119 @@ mod tests {
 
     #[test]
     fn lint_rules_subtable_still_parses() {
-        // The canonical `[lint.rules]` shape keeps working.
+        // Deprecated boolean overrides retain their behavior.
         let toml = "[lint.rules]\nheading-hierarchy = false\n";
         let cfg =
             parse_config_str(toml, Path::new("panache.toml")).expect("[lint.rules] must parse");
         assert!(!cfg.lint.is_rule_enabled("heading-hierarchy"));
+    }
+
+    #[test]
+    fn lint_selection_replaces_defaults_adds_rules_and_applies_ignores_last() {
+        let cfg = parse_config_str(
+            "[lint]\nselect = [\"undefined-references\"]\nextend-select = [\"heading-hierarchy\", \"quarto-schema-unknown-key\"]\nignore = [\"heading-hierarchy\"]\n",
+            Path::new("panache.toml"),
+        ).unwrap();
+        assert!(cfg.lint.is_rule_enabled("undefined-references"));
+        assert!(!cfg.lint.is_rule_enabled("duplicate-reference-labels"));
+        assert!(!cfg.lint.is_rule_enabled("heading-hierarchy"));
+        assert!(
+            cfg.lint
+                .is_rule_explicitly_enabled("quarto-schema-unknown-key")
+        );
+    }
+
+    #[test]
+    fn lint_empty_selection_disables_defaults_but_accepts_additions() {
+        let cfg = parse_config_str(
+            "[lint]\nselect = []\nextend-select = [\"quarto-schema-unknown-key\"]\n",
+            Path::new("panache.toml"),
+        )
+        .unwrap();
+        assert!(!cfg.lint.is_rule_enabled("heading-hierarchy"));
+        assert!(
+            cfg.lint
+                .is_rule_explicitly_enabled("quarto-schema-unknown-key")
+        );
+    }
+
+    #[test]
+    fn lint_additions_preserve_default_rules() {
+        let cfg = parse_config_str(
+            "[lint]\nextend-select = [\"quarto-schema-unknown-key\"]\n",
+            Path::new("panache.toml"),
+        )
+        .unwrap();
+        assert!(cfg.lint.is_rule_enabled("heading-hierarchy"));
+        assert!(
+            cfg.lint
+                .is_rule_explicitly_enabled("quarto-schema-unknown-key")
+        );
+    }
+
+    #[test]
+    fn lint_modern_selection_takes_precedence_over_deprecated_booleans() {
+        let cfg = parse_config_str(
+            "[lint]\nselect = []\nextend-select = [\"heading-hierarchy\"]\nignore = [\"quarto-schema-unknown-key\"]\n[lint.rules]\nheading-hierarchy = false\nquarto-schema-unknown-key = true\n",
+            Path::new("panache.toml"),
+        ).unwrap();
+        assert!(cfg.lint.is_rule_enabled("heading-hierarchy"));
+        assert!(
+            !cfg.lint
+                .is_rule_explicitly_enabled("quarto-schema-unknown-key")
+        );
+        assert!(!cfg.lint.is_rule_enabled("undefined-references"));
+    }
+
+    #[test]
+    fn lint_deprecated_booleans_keep_opt_in_and_normalization_behavior() {
+        let cfg = parse_config_str(
+            "[lint.rules]\nheading_hierarchy = false\nQUARTO_SCHEMA_UNKNOWN_KEY = true\n",
+            Path::new("panache.toml"),
+        )
+        .unwrap();
+        assert!(!cfg.lint.is_rule_enabled("heading-hierarchy"));
+        assert!(
+            cfg.lint
+                .is_rule_explicitly_enabled("quarto-schema-unknown-key")
+        );
+        assert!(cfg.lint.is_rule_enabled("undefined-references"));
+    }
+
+    #[test]
+    fn lint_selection_rejects_invalid_types_and_unknown_keys() {
+        for source in [
+            "[lint]\nselect = \"heading-hierarchy\"",
+            "[lint]\nextend-select = [false]",
+            "[lint]\nignore = false",
+            "[lint]\nextend_select = []",
+            "[lint.rules]\nheading-hierarchy = \"false\"",
+        ] {
+            parse_config_str(source, Path::new("panache.toml")).expect_err(source);
+        }
+    }
+
+    #[test]
+    fn extend_lint_additions_accumulate_while_selection_and_ignore_replace() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::fs::write(tmp.path().join("base.toml"),
+            "[lint]\nselect = [\"undefined-references\"]\nextend-select = [\"quarto-schema-unknown-key\"]\nignore = [\"heading-hierarchy\"]\n[lint.rules]\nheading-hierarchy = false\n",
+        ).unwrap();
+        let child = tmp.path().join("panache.toml");
+        std::fs::write(&child,
+            "extend = \"base.toml\"\n[lint]\nselect = []\nextend-select = [\"heading-hierarchy\"]\nignore = [\"quarto-schema-unknown-key\"]\n",
+        ).unwrap();
+        let (cfg, _) = load(Some(&child), tmp.path(), None, None).unwrap();
+        assert!(cfg.lint.is_rule_enabled("heading-hierarchy"));
+        assert!(!cfg.lint.is_rule_enabled("undefined-references"));
+        assert!(
+            !cfg.lint
+                .is_rule_explicitly_enabled("quarto-schema-unknown-key")
+        );
+        assert_eq!(
+            cfg.lint.extend_select,
+            ["quarto-schema-unknown-key", "heading-hierarchy"]
+        );
     }
 
     #[test]

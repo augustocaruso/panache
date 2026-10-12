@@ -89,10 +89,11 @@ Merge semantics:
   overrides the base. Keys it leaves out are inherited.
 - **Sections merge key by key.** Setting one `[format]` key does not discard the
   base's other `[format]` keys.
-- **`extend-exclude` and `extend-include` accumulate** across the whole chain
-  (parent patterns then child patterns), whereas a plain `exclude` or `include`
-  replaces the inherited list. This mirrors the additive naming used elsewhere
-  (see [File Selection](#file-selection-directory-traversal)).
+- **`extend-exclude`, `extend-include`, and `extend-select` accumulate** across
+  the whole chain (parent patterns then child patterns), whereas `select`,
+  `ignore`, `exclude`, or `include` replaces the inherited list. This mirrors
+  the additive naming used elsewhere (see [File
+  Selection](#file-selection-directory-traversal)).
 - **`[flavors]` entries merge by path pattern.** A child inherits patterns it
   does not mention; assigning an inherited pattern to another flavor moves it to
   that flavor.
@@ -162,9 +163,30 @@ a hint pointing at the replacement key where one exists):
 - snake_case fields under `[formatters.*]` (use `prepend-args` / `append-args`)
 - the `code-blocks` table in any position (long a no-op)
 - the top-level `[style]` section (use `[format]`)
-- the flat `[lint] rule = true` shape (use `[lint.rules] rule = true`)
+- the flat `[lint] rule = true` shape (use `[lint] extend-select` or `ignore`)
 - the per-language `[formatters.<lang>]` config format with `preset`/`enabled`
   (use the `[formatters] <lang> = "<name>"` mapping)
+
+## Lint Rule Selection {#lint}
+
+  | Key             | Type                | Default | Behavior                                          |
+  | ---             | ---                 | ---     | ---                                               |
+  | `select`        | Array of rule names | Unset   | Replaces the default rule set when supplied.      |
+  | `extend-select` | Array of rule names | `[]`    | Adds rules to the defaults or explicit selection. |
+  | `ignore`        | Array of rule names | `[]`    | Disables rules after selection and additions.     |
+  | `rules`         | Table of booleans   | `{}`    | Deprecated overrides for the default rule set.    |
+
+Selectors use exact names from the [rule reference](linter-rules.qmd).
+`select = []` disables the defaults. Rules added by `extend-select` still run
+unless listed in `ignore`, and flavor and extension requirements still apply.
+These settings control built-in lint rules; they do not suppress parser errors
+or select rules in external linters.
+
+When extending another config, `select` and `ignore` replace inherited lists,
+while `extend-select` accumulates. Deprecated `[lint.rules]` entries merge by
+key and preserve their behavior when no new selection settings are supplied. If
+both forms are present, the booleans modify the defaults, `select` replaces that
+base set, `extend-select` adds rules, and `ignore` removes rules last.
 
 ## Editor Support {#editor-support}
 

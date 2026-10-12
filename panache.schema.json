@@ -204,17 +204,39 @@
       "type": "string"
     },
     "LintConfig": {
-      "additionalProperties": {
-        "type": "boolean"
-      },
+      "additionalProperties": false,
       "description": "Linter configuration.",
       "properties": {
+        "extend-select": {
+          "default": [],
+          "description": "Additional rule names to enable alongside the defaults or select.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "ignore": {
+          "default": [],
+          "description": "Rule names to disable, including those in extend-select.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "rules": {
           "additionalProperties": {
             "type": "boolean"
           },
-          "description": "Map of lint rule names to enabled/disabled. Preferred over the legacy flat `[lint]` shape.",
+          "deprecated": true,
+          "description": "Deprecated boolean overrides for the default rule set.",
           "type": "object"
+        },
+        "select": {
+          "description": "Rule names to enable instead of the defaults. An empty list disables the defaults.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
         }
       },
       "type": "object"

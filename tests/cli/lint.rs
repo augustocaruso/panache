@@ -1955,3 +1955,194 @@ fn test_lint_discovers_parent_config_from_relative_target() {
         .success()
         .stdout(predicate::str::contains("No issues found"));
 }
+
+#[test]
+fn deprecated_lint_rules_keep_behavior_and_warn_with_removal_date() {
+    let dir = TempDir::new().unwrap();
+    let config = dir.path().join("panache.toml");
+    fs::write(&config, "[lint.rules]\nheading-hierarchy = false\n").unwrap();
+    cargo_bin_cmd!("panache")
+        .current_dir(dir.path())
+        .args(["--config", config.to_str().unwrap(), "lint"])
+        .write_stdin("# Title\n\n### Skipped level\n")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "`[lint.rules]` boolean tables are deprecated",
+        ))
+        .stderr(predicate::str::contains(config.to_str().unwrap()))
+        .stderr(predicate::str::contains("extend-select"))
+        .stderr(predicate::str::contains("2027-04-12"));
+}
+
+#[test]
+fn inherited_lint_rules_warn_with_the_declaring_path() {
+    let dir = TempDir::new().unwrap();
+    let base = dir.path().join("base.toml");
+    fs::write(&base, "[lint.rules]\nheading-hierarchy = false\n").unwrap();
+    fs::write(dir.path().join("panache.toml"), "extend = \"base.toml\"\n").unwrap();
+    cargo_bin_cmd!("panache")
+        .current_dir(dir.path())
+        .args(["lint"])
+        .write_stdin("# Title\n\n### Skipped level\n")
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(base.to_str().unwrap()));
+}
+
+#[test]
+fn lint_cli_selects_only_requested_rules_for_stdin_and_files() {
+    let dir = TempDir::new().unwrap();
+    let input = "# Title\n\n### Skipped level\n\nSee [missing][target].\n";
+    fs::write(dir.path().join("doc.md"), input).unwrap();
+    cargo_bin_cmd!("panache")
+        .current_dir(dir.path())
+        .args(["--isolated", "lint", "--select", "undefined-references"])
+        .write_stdin(input)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("undefined-reference-label"))
+        .stdout(predicate::str::contains(
+            "[lint] ignore = [\"undefined-references\"]",
+        ))
+        .stdout(predicate::str::contains("heading-hierarchy").not())
+        .stderr(predicate::str::contains("deprecated").not());
+    for target in ["doc.md", "."] {
+        cargo_bin_cmd!("panache")
+            .current_dir(dir.path())
+            .args([
+                "--isolated",
+                "lint",
+                "--select",
+                "undefined-references",
+                target,
+            ])
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains("undefined-reference-label"))
+            .stdout(predicate::str::contains("heading-hierarchy").not());
+    }
+    cargo_bin_cmd!("panache")
+        .current_dir(dir.path())
+        .args([
+            "--isolated",
+            "lint",
+            "--select",
+            "heading-hierarchy,undefined-references",
+        ])
+        .write_stdin(input)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("undefined-reference-label"))
+        .stdout(predicate::str::contains("heading-hierarchy"));
+}
+
+#[test]
+fn lint_cli_overrides_selection_adds_rules_and_replaces_ignores() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("panache.toml"),
+        "[lint]\nselect = []\nignore = [\"heading-hierarchy\"]\n",
+    )
+    .unwrap();
+    let input = "# Title\n\n### Skipped level\n";
+    cargo_bin_cmd!("panache")
+        .current_dir(dir.path())
+        .args(["lint", "--extend-select", "heading-hierarchy"])
+        .write_stdin(input)
+        .assert()
+        .success();
+    cargo_bin_cmd!("panache")
+        .current_dir(dir.path())
+        .args([
+            "lint",
+            "--extend-select",
+            "heading-hierarchy",
+            "--ignore",
+            "",
+        ])
+        .write_stdin(input)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("heading-hierarchy"));
+    cargo_bin_cmd!("panache")
+        .current_dir(dir.path())
+        .args([
+            "lint",
+            "--select",
+            "heading-hierarchy",
+            "--ignore",
+            "undefined-references",
+        ])
+        .write_stdin(input)
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("heading-hierarchy"));
+    cargo_bin_cmd!("panache")
+        .current_dir(dir.path())
+        .args(["--isolated", "lint", "--select", ""])
+        .write_stdin(input)
+        .assert()
+        .success();
+}
+
+#[test]
+fn lint_cli_selection_changes_invalidate_cached_diagnostics() {
+    let dir = TempDir::new().unwrap();
+    fs::write(dir.path().join("doc.md"), "# Title\n\n### Skipped level\n").unwrap();
+    let cache = dir.path().join("cache");
+    for (select, reports_heading) in [
+        ("heading-hierarchy", true),
+        ("", false),
+        ("heading-hierarchy", true),
+    ] {
+        let assertion = cargo_bin_cmd!("panache")
+            .current_dir(dir.path())
+            .args([
+                "--isolated",
+                "--cache-dir",
+                cache.to_str().unwrap(),
+                "lint",
+                "--select",
+                select,
+                "doc.md",
+            ])
+            .assert();
+        if reports_heading {
+            assertion
+                .failure()
+                .stdout(predicate::str::contains("heading-hierarchy"));
+        } else {
+            assertion
+                .success()
+                .stdout(predicate::str::contains("heading-hierarchy").not());
+        }
+    }
+}
+
+#[test]
+fn lint_cli_selection_applies_to_explicit_quarto_manifests() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("_quarto.yml"),
+        "project:\n  type: website\n  render: true\n",
+    )
+    .unwrap();
+    cargo_bin_cmd!("panache")
+        .current_dir(dir.path())
+        .args(["--isolated", "lint", "_quarto.yml"])
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("quarto-schema"));
+    cargo_bin_cmd!("panache")
+        .current_dir(dir.path())
+        .args([
+            "--isolated",
+            "lint",
+            "--select",
+            "heading-hierarchy",
+            "_quarto.yml",
+        ])
+        .assert()
+        .success();
+}

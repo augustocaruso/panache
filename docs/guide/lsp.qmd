@@ -751,7 +751,10 @@ Most editors support folding with default key bindings (e.g., `za` in Neovim,
 
 ### Live Diagnostics
 
-Linting errors and warnings appear in real-time as you type:
+Linting errors and warnings appear in real-time as you type. The language server
+uses the same `[lint] select`, `extend-select`, and `ignore` settings as the
+CLI. Editing these settings in `panache.toml` updates diagnostics for open
+documents. See [rule selection](linting.qmd#configuration).
 
 Built-in rules
 :   Heading hierarchy, duplicate references, citation validation, parser errors.

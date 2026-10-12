@@ -256,3 +256,24 @@ fn schema_rejects_non_integer_line_width() {
         "schema must reject `line-width = \"eighty\"`"
     );
 }
+
+#[test]
+fn lint_selection_schema_matches_supported_shapes() {
+    let validator = build_validator();
+    for source in [
+        "[lint]\nselect = []\nextend-select = [\"quarto-schema-unknown-key\"]\nignore = [\"heading-hierarchy\"]",
+        "[lint.rules]\nheading-hierarchy = false",
+    ] {
+        assert!(validator.is_valid(&toml_to_json(source)), "{source}");
+        toml::from_str::<Config>(source).expect("schema-valid lint config parses");
+    }
+    for source in [
+        "[lint]\nselect = \"heading-hierarchy\"",
+        "[lint]\nextend-select = [false]",
+        "[lint]\nignore = false",
+        "[lint]\nheading-hierarchy = false",
+    ] {
+        assert!(!validator.is_valid(&toml_to_json(source)), "{source}");
+        assert!(toml::from_str::<Config>(source).is_err(), "{source}");
+    }
+}

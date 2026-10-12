@@ -160,7 +160,7 @@ impl DiagnosticCode {
 /// that does not appear here.
 #[derive(Debug, Clone)]
 pub struct RuleMeta {
-    /// Rule name, as used in `[lint.rules]` and the docs' `### \`name\`` heading.
+    /// Rule name, as used in `[lint]` selection lists and the docs' `### \`name\`` heading.
     pub name: &'static str,
     /// `true` when the rule runs unless explicitly disabled; `false` when it is
     /// opt-in (must be explicitly enabled). Documented as "Default: Off" when

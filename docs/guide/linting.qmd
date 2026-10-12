@@ -354,48 +354,51 @@ ignore directives.
 
 ## Configuration
 
-Lint rules can be configured in the `[lint.rules]` section of your configuration
-file. Each key is a rule name and each value is a boolean (`true`/`false`).
+Use `[lint]` to choose which built-in rules run. Rules use the exact names in
+the [rule reference](../reference/linter-rules.qmd).
+
+By default, Panache runs every rule marked **Default: On**. Use `ignore` to
+disable rules and `extend-select` to enable opt-in rules alongside the defaults:
 
 ```toml
-[lint.rules]
-heading-hierarchy = true
-blank-line-in-display-math = true
-blank-line-in-inline-footnote = true
-duplicate-reference-labels = true
-undefined-references = true
-unused-definitions = true
-duplicate-yaml-anchor = true
-unused-yaml-anchor = true
-citation-keys = true
-malformed-citation = true
-citation-nonbreaking-space = true
-unspaced-citation = true
-unspaced-list-marker = true
-space-before-punctuation = true
-chunk-label-spaces = true
-missing-chunk-labels = true
-figure-crossref-captions = true
-unknown-emoji-alias = true
-inline-math-line-break = true
+[lint]
+ignore = ["heading-hierarchy"]
+extend-select = ["quarto-schema-unknown-key"]
 ```
 
-Most rules are enabled by default when omitted. You can disable a specific rule:
+To run only specific rules, use `select`, which replaces the defaults:
 
 ```toml
-[lint.rules]
-undefined-references = false
+[lint]
+select = ["undefined-references", "duplicate-reference-labels"]
 ```
 
-Rules marked **Default: Off** in the [reference](../reference/linter-rules.qmd)
-must be enabled explicitly.
+Panache starts with the defaults or `select`, adds `extend-select`, then removes
+`ignore`. An empty `select = []` disables the defaults; `extend-select` can
+still add rules. Selecting a rule does not override its flavor or extension
+requirements. Parser errors and external linters are configured separately.
+
+For a single CLI run, use comma-separated rule names with `--select`,
+`--extend-select`, or `--ignore`:
+
+```sh
+panache lint --select undefined-references,duplicate-reference-labels document.qmd
+panache lint --extend-select quarto-schema-unknown-key document.qmd
+panache lint --ignore heading-hierarchy document.qmd
+```
+
+`--select` and `--ignore` replace their corresponding configuration lists.
+`--extend-select` adds to the configured additions. Pass `--select ""` to
+disable the defaults or `--ignore ""` to clear configured ignores.
+
+### Spacing Before Punctuation
 
 The `space-before-punctuation` rule checks spaces before `.`, `,`, and `;` in
 prose by default. To allow this spacing, disable the rule:
 
 ```toml
-[lint.rules]
-space-before-punctuation = false
+[lint]
+ignore = ["space-before-punctuation"]
 ```
 
 Review these warnings, then apply their fixes with

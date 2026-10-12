@@ -146,6 +146,15 @@ Lint a document to check for correctness issues and best practice violations. Un
 
 ### Options
 
+`--select <SELECT>`
+:   Rule names to enable instead of the configured defaults
+
+`--extend-select <EXTEND_SELECT>`
+:   Additional rule names to enable alongside the configured selection
+
+`--ignore <IGNORE>`
+:   Rule names to disable, replacing configured ignores
+
 `--fix`
 :   Automatically fix violations where possible
 

@@ -67,7 +67,7 @@ fn did_change_configuration_reloads_disk_config() {
     let root = tmp.path();
     fs::create_dir_all(root.join(".git")).unwrap();
     let config_path = root.join("panache.toml");
-    fs::write(&config_path, "[lint.rules]\nheading-hierarchy = false\n").unwrap();
+    fs::write(&config_path, "[lint]\nselect = []\n").unwrap();
 
     let doc_path = root.join("doc.qmd");
     let doc_uri = Uri::from_file_path(&doc_path).expect("doc uri");
@@ -82,7 +82,7 @@ fn did_change_configuration_reloads_disk_config() {
     );
 
     // Re-enable the rule on disk, then notify the server.
-    fs::write(&config_path, "[lint.rules]\nheading-hierarchy = true\n").unwrap();
+    fs::write(&config_path, "[lint]\nselect = [\"heading-hierarchy\"]\n").unwrap();
     server.did_change_configuration(json!(null));
 
     assert!(

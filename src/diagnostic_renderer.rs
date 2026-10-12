@@ -23,6 +23,7 @@ pub(crate) fn print_diagnostics(
     // O(findings x file length) — 817 ms against 18 ms of analysis on a
     // 12 000-line file with 1500 findings.
     let index = source.map(SourceIndex::new);
+    let rule_metadata = panache::linter::builtin_rule_metadata();
 
     for diag in diagnostics {
         if matches!(message_format, MessageFormat::Short) {
@@ -74,13 +75,18 @@ pub(crate) fn print_diagnostics(
         }
 
         if diag.origin == DiagnosticOrigin::BuiltIn {
-            print_subdiag(
-                "note",
-                &format!(
-                    "configure this rule in panache.toml with [lint.rules] {} = false",
-                    diag.code
-                ),
-            );
+            if let Some(rule) = rule_metadata
+                .iter()
+                .find(|rule| rule.codes.iter().any(|code| code.code == diag.code))
+            {
+                print_subdiag(
+                    "note",
+                    &format!(
+                        "configure this rule in panache.toml with [lint] ignore = [\"{}\"]",
+                        rule.name
+                    ),
+                );
+            }
             print_subdiag(
                 "help",
                 &format!(
