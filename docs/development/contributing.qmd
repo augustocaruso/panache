@@ -1,6 +1,6 @@
 ---
 title: "Contributing to Panache"
-description: >-
+description: >
   How to contribute to Panache: set up the toolchain, run the test and lint
   suite, and follow the project's development workflow.
 ---

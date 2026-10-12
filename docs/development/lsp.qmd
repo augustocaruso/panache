@@ -1,6 +1,6 @@
 ---
 title: Language Server Development
-description: >-
+description: >
   How the Panache language server works: incremental document synchronization,
   parsing, and the LSP features it implements.
 ---

@@ -10,7 +10,7 @@ project:
 
 website:
   title: "Panache"
-  description: >-
+  description: >
     Panache provides a language server, formatter, and linter for Quarto and other
     Markdown flavors, including MyST and R Markdown.
 

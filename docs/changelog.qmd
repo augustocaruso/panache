@@ -1,6 +1,6 @@
 ---
 title: "Changelog"
-description: >-
+description: >
   Release history and notable changes for Panache, the formatter, linter, and
   language server for Quarto and other Markdown flavors.
 ---
