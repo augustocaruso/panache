@@ -1521,6 +1521,70 @@ fn test_citation_nonbreaking_space() {
 }
 
 #[test]
+fn test_malformed_citation() {
+    let input = include_str!("linting/malformed_citation.md");
+    let diagnostics = lint_file("malformed_citation.md");
+    let flagged: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.code == "malformed-citation")
+        .collect();
+    let expected = [
+        (1, "@"),
+        (3, "-@"),
+        (5, "@."),
+        (7, "@:"),
+        (9, "@"),
+        (11, "@{"),
+        (13, "@"),
+        (15, "-@."),
+        (17, "@{}"),
+        (19, "@{}"),
+        (21, "@{"),
+        (23, "[@"),
+    ];
+    assert_eq!(flagged.len(), expected.len(), "{diagnostics:#?}");
+    for (diagnostic, (line, span)) in flagged.iter().zip(expected) {
+        assert_eq!(diagnostic.location.line, line);
+        assert_eq!(&input[diagnostic.location.range], span);
+        assert_eq!(diagnostic.severity, panache::linter::Severity::Warning);
+        assert!(diagnostic.fix.is_none());
+    }
+    assert!(
+        diagnostics.iter().all(|d| {
+            d.code != "undefined-reference-label"
+                || ![1, 3, 5, 7, 9, 11, 13, 15].contains(&d.location.line)
+        }),
+        "malformed citations should get a specific diagnostic: {diagnostics:#?}"
+    );
+}
+
+#[test]
+fn malformed_citation_can_be_disabled() {
+    let diagnostics = lint_file_with_config(
+        "malformed_citation.md",
+        "[lint.rules]\nmalformed-citation = false\n",
+    );
+    assert!(diagnostics.iter().all(|d| d.code != "malformed-citation"));
+    assert!(
+        diagnostics
+            .iter()
+            .any(|d| { d.code == "undefined-reference-label" && d.location.line == 1 })
+    );
+}
+
+#[test]
+fn malformed_citation_requires_citations() {
+    for config in [
+        "flavor = \"commonmark\"\n",
+        "flavor = \"gfm\"\n",
+        "[extensions]\ncitations = false\n",
+    ] {
+        let diagnostics = lint_file_with_config("malformed_citation.md", config);
+        assert!(diagnostics.iter().all(|d| d.code != "malformed-citation"));
+    }
+}
+
+#[test]
 fn test_table_column_count() {
     let diagnostics = lint_file("table_column_count.md");
     let flagged: Vec<_> = diagnostics

@@ -528,6 +528,11 @@ impl AstNode for UnresolvedReference {
 }
 
 impl UnresolvedReference {
+    /// The link's bracket text as parsed inline children, excluding images.
+    pub fn text_node(&self) -> Option<LinkText> {
+        support::child(&self.0)
+    }
+
     /// `true` if this is an image-shape reference (`![alt]...`),
     /// `false` for a link-shape reference (`[text]...`). Determined
     /// from the leading byte of the node's source text.

@@ -195,7 +195,8 @@ analogue; do not re-audit them: call hierarchy, type hierarchy,
 #### Syntax correctness
 
 - [ ] Broken table structures
-- [ ] Invalid citation syntax (`@citekey` malformations)
+- [x] Invalid citation syntax (`malformed-citation`: missing keys, invalid key
+  starts, and unclosed braces or citation brackets)
 - [ ] Unclosed inline math/code spans
 - [ ] Invalid shortcode syntax (Quarto-specific)
 

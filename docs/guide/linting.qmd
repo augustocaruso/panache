@@ -368,6 +368,7 @@ unused-definitions = true
 duplicate-yaml-anchor = true
 unused-yaml-anchor = true
 citation-keys = true
+malformed-citation = true
 citation-nonbreaking-space = true
 unspaced-citation = true
 unspaced-list-marker = true

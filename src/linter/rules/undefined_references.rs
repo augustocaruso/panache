@@ -104,6 +104,12 @@ impl Rule for UndefinedReferencesRule {
             .cloned()
             .filter_map(UnresolvedReference::cast)
         {
+            if config.extensions.citations
+                && config.lint.is_rule_enabled("malformed-citation")
+                && super::malformed_citation::has_malformed_marker(&unresolved)
+            {
+                continue;
+            }
             // A `[^`-opened bracket is a reversed inline-footnote marker, not a
             // reference label; `reversed-footnote-marker` says so precisely.
             // Same flavor scoping as the footnote branch below.

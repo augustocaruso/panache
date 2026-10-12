@@ -28,6 +28,7 @@ pub mod heading_strip_comments_residue;
 pub mod html_entities;
 pub mod inline_math_line_break;
 pub mod link_text_is_url;
+pub mod malformed_citation;
 pub mod math_content;
 pub mod missing_chunk_labels;
 pub mod quarto_schema;

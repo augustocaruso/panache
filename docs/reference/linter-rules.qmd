@@ -910,6 +910,57 @@ quiet about the ambient manifest.
 Emitted when an inline bibliography entry collides with another inline entry or
 with a key from a loaded bibliography file.
 
+### `malformed-citation` {#malformed-citation}
+
+Detects citation markers with missing keys or malformed delimiters.
+
+Severity
+:   Warning
+
+Auto-fix
+:   No
+
+Requirements
+:   Requires `extensions.citations = true` in configuration (default for the
+    Pandoc, Quarto, and R Markdown flavors).
+
+Diagnostic codes
+:   [`malformed-citation`](#malformed-citation)
+
+Description
+
+:   Checks unresolved bracketed forms such as `[@]`, `[-@]`, `[@ key]`, and
+    `[@.key]`, including malformed markers after a prefix or in a group such as
+    `[see @.key]` and `[@first; @]`. An unbraced key must begin with a letter,
+    digit, or underscore and immediately follow `@`. Use `@{...}` for keys that
+    need other characters.
+
+    The rule also reports empty braced keys (`@{}`), unclosed braced keys (`@{key`),
+    and citations that start with `[@key` or `[-@key` and have no closing square
+    bracket in the same prose block. It leaves valid citation suffixes such as
+    `[@key..suffix]` alone. Bibliography lookup belongs to
+    [`citation-keys`](#citation-keys).
+
+    Code, math, escaped markers, email addresses, working links and images, and
+    explicit reference-link labels are excluded. Bare `@` in ordinary prose is
+    ambiguous and is not flagged. When this rule identifies a malformed bracket,
+    `undefined-references` omits its generic missing-label warning. Disabling this
+    rule restores that warning.
+
+    There is no auto-fix because the intended key and delimiter placement require
+    the author's judgment.
+
+**Example violation:**
+
+```markdown
+See [@.smith2020] and [@other; @].
+```
+
+```text
+warning[malformed-citation]: Citation key must start with a letter, digit, or '_'; use '@{...}' for other keys
+warning[malformed-citation]: Citation marker has no key; add a citation key after '@'
+```
+
 ### `citation-nonbreaking-space` {#citation-nonbreaking-space}
 
 Detects a breakable space (or a source line break) between text and a bracketed
