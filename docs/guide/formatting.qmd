@@ -949,7 +949,9 @@ therefore independent of the incoming spacing and dash lengths.
 
 Headerless simple tables (delimited by a dash run above and below the data) have
 no header row, so each column's alignment is read from the **first data row's**
-position relative to the dash runs, matching how Pandoc parses them.
+position relative to the dash runs, matching how Pandoc parses them. Their
+closing separator stays attached to the table, even when a paragraph and another
+dashed border follow.
 
 A single continuous dash run also opens a headerless *single-column* table when
 a closing dash run follows before the next blank line (`---`, rows, `---`),

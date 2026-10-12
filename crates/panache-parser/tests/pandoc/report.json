@@ -3,7 +3,7 @@
   "failing": 6,
   "pandoc_version": "3.12",
   "pass_pct": 99.0,
-  "passing": 599,
+  "passing": 600,
   "passing_ids": [
     1,
     2,
@@ -603,7 +603,8 @@
     602,
     603,
     604,
-    605
+    605,
+    606
   ],
   "sections": [
     {
@@ -630,7 +631,12 @@
       "fail": 0,
       "name": "inline",
       "pass": 17
+    },
+    {
+      "fail": 0,
+      "name": "tables",
+      "pass": 1
     }
   ],
-  "total_cases": 605
+  "total_cases": 606
 }

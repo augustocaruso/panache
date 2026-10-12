@@ -1,0 +1,9 @@
+  ----- -----
+     12 12
+    123 123
+      1 1
+  ----- -----
+
+Multiline table without headers:
+
+  ----- -----

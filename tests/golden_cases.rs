@@ -551,6 +551,7 @@ golden_test_cases!(
     lists_task_no_content,
     lists_wrapping_nested,
     lists_wrapping_simple,
+    issue_557_headerless_table_before_paragraph,
     multiline_table_basic,
     multiline_table_blank_after_opener_idempotent,
     multiline_table_column_spacing,

@@ -3011,6 +3011,12 @@ fn scan_multiline_table(
             column_sep_pos = pos;
             has_header = pos > start_pos + 1; // Has header if there's content before column sep
             pos += 1;
+            // Pandoc requires the first body row immediately after the header
+            // separator. Otherwise a simple table's footer can become a header
+            // separator and pull later paragraphs into the table.
+            if pos >= lines.len() || window.line(pos).trim().is_empty() {
+                return None;
+            }
             continue;
         }
 

@@ -1087,6 +1087,7 @@ golden_test_cases!(
     ordered_marker_max_digits_commonmark,
     ordered_marker_max_digits_pandoc,
     ordered_paren_marker_decimal_commonmark,
+    issue_557_headerless_table_before_paragraph,
     multiline_table_basic,
     multiline_table_caption,
     multiline_table_caption_after,
