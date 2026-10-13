@@ -221,6 +221,7 @@ golden_test_cases!(
     code_spans_unmatched_backtick_run_commonmark,
     commonmark_code_fence_info_string_preserved,
     crlf_basic,
+    crlf_hard_breaks_commonmark,
     crlf_code_blocks,
     crlf_definition_lists,
     crlf_display_math,

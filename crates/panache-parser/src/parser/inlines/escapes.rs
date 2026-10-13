@@ -24,6 +24,11 @@ pub fn try_parse_escape(text: &str) -> Option<(usize, char, EscapeType)> {
         return None;
     }
 
+    // A CRLF line ending is one newline: `\` + CRLF is a hard line break.
+    if text[1..].starts_with("\r\n") {
+        return Some((3, '\r', EscapeType::HardLineBreak));
+    }
+
     let next_char = text[1..].chars().next()?;
 
     if !is_escapable(next_char) {
@@ -44,7 +49,7 @@ pub fn try_parse_escape(text: &str) -> Option<(usize, char, EscapeType)> {
 pub enum EscapeType {
     Literal,          // Regular escaped character like \*
     NonbreakingSpace, // \<space>
-    HardLineBreak,    // \<newline>
+    HardLineBreak,    // \<newline> (escaped char `\n`, or `\r` for a CRLF ending)
 }
 
 /// Emit an escape sequence to the builder.
@@ -64,9 +69,10 @@ pub fn emit_escape(
             builder.token(SyntaxKind::NONBREAKING_SPACE.into(), "\\ ");
         }
         EscapeType::HardLineBreak => {
+            let newline = if ch == '\r' { "\r\n" } else { "\n" };
             builder.token(
                 SyntaxKind::HARD_LINE_BREAK.into(),
-                &format!("{leading_ws}\\\n"),
+                &format!("{leading_ws}\\{newline}"),
             );
         }
         EscapeType::Literal => {
@@ -104,6 +110,12 @@ mod tests {
     fn test_escape_newline() {
         let result = try_parse_escape("\\\n");
         assert_eq!(result, Some((2, '\n', EscapeType::HardLineBreak)));
+    }
+
+    #[test]
+    fn test_escape_crlf() {
+        let result = try_parse_escape("\\\r\nnext");
+        assert_eq!(result, Some((3, '\r', EscapeType::HardLineBreak)));
     }
 
     #[test]
