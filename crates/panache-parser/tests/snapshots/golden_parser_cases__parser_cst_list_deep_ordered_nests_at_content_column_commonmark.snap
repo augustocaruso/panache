@@ -1,0 +1,80 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..92
+  LIST@0..40
+    LIST_ITEM@0..40
+      LIST_MARKER@0..2 "1."
+      WHITESPACE@2..3 " "
+      PLAIN@3..5
+        TEXT@3..4 "a"
+        NEWLINE@4..5 "\n"
+      BLANK_LINE@5..6
+        BLANK_LINE@5..6 "\n"
+      LIST@6..40
+        LIST_ITEM@6..40
+          WHITESPACE@6..9 "   "
+          LIST_MARKER@9..11 "1."
+          WHITESPACE@11..12 " "
+          PLAIN@12..14
+            TEXT@12..13 "b"
+            NEWLINE@13..14 "\n"
+          BLANK_LINE@14..15
+            BLANK_LINE@14..15 "\n"
+          LIST@15..40
+            LIST_ITEM@15..40
+              WHITESPACE@15..21 "      "
+              LIST_MARKER@21..23 "1."
+              WHITESPACE@23..24 " "
+              PLAIN@24..26
+                TEXT@24..25 "c"
+                NEWLINE@25..26 "\n"
+              LIST@26..40
+                LIST_ITEM@26..40
+                  WHITESPACE@26..35 "         "
+                  LIST_MARKER@35..37 "1."
+                  WHITESPACE@37..38 " "
+                  PLAIN@38..40
+                    TEXT@38..39 "d"
+                    NEWLINE@39..40 "\n"
+  BLANK_LINE@40..41
+    BLANK_LINE@40..41 "\n"
+  LIST@41..92
+    LIST_ITEM@41..92
+      LIST_MARKER@41..43 "1)"
+      WHITESPACE@43..44 " "
+      PLAIN@44..46
+        TEXT@44..45 "a"
+        NEWLINE@45..46 "\n"
+      LIST@46..92
+        LIST_ITEM@46..92
+          WHITESPACE@46..49 "   "
+          LIST_MARKER@49..51 "1)"
+          WHITESPACE@51..52 " "
+          PLAIN@52..54
+            TEXT@52..53 "b"
+            NEWLINE@53..54 "\n"
+          LIST@54..92
+            LIST_ITEM@54..92
+              WHITESPACE@54..60 "      "
+              LIST_MARKER@60..62 "1)"
+              WHITESPACE@62..63 " "
+              PLAIN@63..65
+                TEXT@63..64 "c"
+                NEWLINE@64..65 "\n"
+              BLANK_LINE@65..66
+                BLANK_LINE@65..66 "\n"
+              PLAIN@66..77
+                TEXT@66..76 "         x"
+                NEWLINE@76..77 "\n"
+              BLANK_LINE@77..78
+                BLANK_LINE@77..78 "\n"
+              LIST@78..92
+                LIST_ITEM@78..92
+                  WHITESPACE@78..87 "         "
+                  LIST_MARKER@87..89 "1)"
+                  WHITESPACE@89..90 " "
+                  PLAIN@90..92
+                    TEXT@90..91 "d"
+                    NEWLINE@91..92 "\n"

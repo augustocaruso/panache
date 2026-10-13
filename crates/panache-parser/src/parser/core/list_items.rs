@@ -987,7 +987,12 @@ impl<'a> Parser<'a> {
             virtual_marker_space: prepared.virtual_marker_space,
         };
         let current_content_col = paragraphs::current_content_col(&self.containers);
+        // Pandoc's deep ordered (e.g. roman) lists keep a marker within three
+        // columns of its list's base indent as a sibling even at the open
+        // item's content column (#137). CommonMark nests any marker at or past
+        // that column (§5.2), whatever its kind.
         let deep_ordered_matched_level = matched_level
+            .filter(|_| self.config.dialect != crate::options::Dialect::CommonMark)
             .and_then(|level| self.containers.stack.get(level).map(|c| (level, c)))
             .and_then(|(level, container)| match container {
                 Container::List {

@@ -983,6 +983,7 @@ golden_test_cases!(
     list_continuation_indent_stripped_pandoc,
     list_continuation_tab_indent_pandoc,
     list_deep_marker_no_blank_is_lazy,
+    list_deep_ordered_nests_at_content_column_commonmark,
     list_gobble_chain_lazy_continuation,
     list_interrupts_paragraph_commonmark,
     list_interrupts_paragraph_pandoc,
