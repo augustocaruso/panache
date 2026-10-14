@@ -7,199 +7,208 @@ description: >
 
 ### Document Synchronization
 
-The LSP tracks document changes using **incremental synchronization**:
+The language server tracks document changes using **incremental
+synchronization**:
 
 `textDocument/didOpen`
-:   Document opened in editor
+:   The editor opens a document.
 
 `textDocument/didChange`
-:   Document content changed (incremental deltas sent)
+:   The editor sends incremental changes to the document's content.
 
 `textDocument/didClose`
-:   Document closed
+:   The editor closes a document.
 
-This ensures the LSP always has the current document state while minimizing data
-transfer.
+These notifications keep the server's document state current while minimizing
+data transfer.
 
 ### One Tree, Derived on Demand
 
-The notification handlers write salsa *inputs* only --- they never parse. Every
-consumer (request handlers, the linter, diagnostics) reads the tree from the
-`parsed_document` query, so there is exactly one parse of a document per
-revision and no way for a handler to see a tree that disagrees with the text it
-was handed.
+Notification handlers write Salsa *inputs* without parsing. All consumers,
+including request handlers, the linter, and diagnostics, read the tree from the
+`parsed_document` query. Each document therefore has exactly one parse per
+revision, and handlers always see a tree that matches the text they receive.
 
-Quarto diagnostics also load the embedded validation schema once on first use.
-The schema decoder constructs nested nodes directly to avoid buffering temporary
+Quarto diagnostics load the embedded validation schema once, on first use. The
+schema decoder constructs nested nodes directly to avoid buffering temporary
 subtrees during the first analysis. The `benches/lsp_first_open.py` benchmark
-separates that shared initialization cost from each document's analysis time.
+measures that shared initialization cost separately from each document's
+analysis time.
 
-### One Line Index, Shared by Both Phases
+### One Line Index for Updates and Requests
 
-Positions are converted through a `LineIndex` (`src/lsp/line_index.rs`): line
-start offsets plus a per-line "has any non-ASCII byte" flag, so a conversion is
-a binary search and, on the all-ASCII lines that are nearly all of them, plain
-arithmetic.
+A `LineIndex` (`src/lsp/line_index.rs`) converts document positions. It stores
+line start offsets and a flag for each line indicating whether it contains any
+non-ASCII bytes. Each conversion uses a binary search. On all-ASCII lines, which
+account for nearly all lines, the remaining work is plain arithmetic.
 
-There is one index per open document, in a `LineIndexCache` shared by handle
-between the writer and every worker snapshot. `did_change` *takes* it out,
-patches it (`replace_range` shifts the line table rather than rescanning) and
-puts it back; a request handler asks for the same entry. Both phases therefore
-see the index the last keystroke produced.
+A `LineIndexCache` stores one index per open document. The writer and every
+worker snapshot share a handle to this cache. `did_change` takes the index out,
+patches it with `replace_range`, and puts it back. The patch shifts the line
+table rather than rescanning the document. Request handlers retrieve the same
+entry, so updates and requests use the index produced by the last keystroke.
 
-This is deliberately not a salsa query. A keystroke writes the text input, so a
-memo keyed on it is invalidated per revision --- which meant every request an
-editor issued between keystrokes rebuilt the index over the whole document while
-the writer held one for those very bytes. It also meant two live `Arc`s to the
-index, which turned the write phase's in-place patch into a table copy.
+The index is cached outside Salsa because each keystroke updates the text input,
+invalidating any memo keyed on it. When the index was a Salsa query, every
+request the editor issued between keystrokes rebuilt the index over the whole
+document, even though the writer already held an index for those bytes. There
+were also two live `Arc`s to the index, which turned the writer's in-place patch
+into a table copy.
 
-What makes sharing safe is that **an entry is never trusted**. It is handed out
-only while it still shares the text allocation salsa holds, compared by
-`Arc::ptr_eq`. An `Arc<str>` is immutable and an edit *replaces* the handle
-rather than writing through it, so a shared allocation proves the tables
-describe those bytes without reading one --- and any other writer of the text (a
-watcher event, a disk resync, a reopen) invalidates the entry without knowing
-the cache exists. A reader can therefore only ever miss and rebuild, never
-answer against stale bytes. Strict identity is the right test here, unlike the
-reparse base below, which also accepts equal contents: a stale base only widens
-the next diff, whereas a stale line index would be a wrong answer.
+Sharing is safe because **the cache checks every entry before returning it**. It
+returns an entry only if the entry shares the text allocation Salsa holds, as
+checked by `Arc::ptr_eq`. An `Arc<str>` is immutable, and an edit replaces the
+handle rather than writing through it. A shared allocation therefore proves that
+the index describes the current bytes without reading them.
 
-`parsed_document` splices that tree off the previous parse instead of reparsing
-from scratch, which is the default; `PANACHE_INCREMENTAL_PARSING=0` turns it off
-for debugging, as does the deprecated `experimental.incrementalParsing = false`
-client setting. The previous parse lives in a side channel beside salsa
-(`src/incremental.rs`), keyed on `(file, config)` and reused only when both the
-config value and the document's reference-definition set are unchanged ---
-retained blocks keep the resolution and options they were parsed with, so either
-changing invalidates them at a distance.
+Any other update to the text, whether from a watcher event, disk
+resynchronization, or reopening the document, invalidates the entry without
+requiring the writer to know about the cache. A reader with an invalid entry
+must rebuild the index and cannot return an answer based on stale bytes. The
+cache requires allocation identity, whereas the reparse base described below
+also accepts equal contents. A stale base only widens the next diff, but a stale
+line index would produce a wrong answer.
 
-The splice is attempted in four tiers, cheapest first, and the first one that
-succeeds wins:
+### Incremental Parsing
+
+By default, `parsed_document` reuses the previous parse by splicing in changes
+rather than reparsing from scratch. Set `PANACHE_INCREMENTAL_PARSING=0` to turn
+this off for debugging. The deprecated `experimental.incrementalParsing = false`
+client setting also disables it. The previous parse lives in a side channel
+alongside Salsa (`src/incremental.rs`), keyed on `(file, config)`. It is reused
+only when both the config value and the document's reference-definition set are
+unchanged. Retained blocks keep the reference resolution and options from their
+original parse, so a change to either can invalidate blocks far from the edit.
+
+The query attempts a splice in four tiers, cheapest first, and uses the first
+one that succeeds:
 
 - **Token.** An edit strictly inside one plain-prose `TEXT` token of a top-level
-  paragraph replaces that one green token. It costs the token's length plus a
-  green root rebuild, so like the region tier below and unlike the two windows
-  it does not scale with the document --- which is what makes a keystroke in a
-  300 KB file cost what a keystroke in a small one does. It is tried before the
-  cost guards below, so an accepted edit also skips the price of deciding not to
-  reuse. The guards are strict: the edit must not touch either end of the
-  token's non-whitespace core, every byte of the token must be inert prose, the
-  token must still read as one `TEXT` on its own, and the edit must sit past its
-  line's first word so no block marker can be manufactured.
-- **Region.** Re-parses one contiguous run of top-level `DOCUMENT` children ---
-  the run the edit touches, widened until a blank line sits on each side. Unlike
-  the two below it, the parse is *bounded*: it covers the region and not the
-  rest of the document, so an edit near the top of a large file costs what the
-  same edit costs near the bottom. It answers most edits in ordinary prose
-  documents.
-- **Section window.** Re-parses from the previous top-level heading, and
-  re-adopts the old tail by `Arc` identity when it comes back structurally
-  equal.
-- **Suffix window.** Re-parses from the enclosing block.
+  paragraph replaces that green token. Its cost depends on the token's length
+  plus a green root rebuild. Like the region tier below, this work does not
+  scale with document size. For an accepted edit, a keystroke in a 300 KB file
+  therefore costs the same as a keystroke in a small file. The token tier runs
+  before the cost guards described below, so a successful splice also avoids the
+  cost of evaluating them. Its guards are strict: the edit must not touch either
+  end of the token's non-whitespace core, every byte of the token must be inert
+  prose, the token must still parse as a single `TEXT` token in isolation, and
+  the edit must fall after the first word on its line so it cannot create a
+  block marker.
+- **Region.** Reparses one contiguous run of top-level `DOCUMENT` children. The
+  run covers the edit and extends until a blank line sits on each side. The
+  parse is *bounded*: it covers only the region, so an edit near the top of a
+  large file costs the same as an edit near the bottom. It handles most edits in
+  ordinary prose documents.
+- **Section window.** Reparses from the previous top-level heading and reuses
+  the old tail, preserving its `Arc` identity, when the reparsed tail is
+  structurally equal.
+- **Suffix window.** Reparses from the enclosing block.
 
-The two window tiers parse to the end of the document. The region tier does not,
-and the difference is not that bounded parsing turned out to be safe after all ---
-a fragment parsed on its own really is untrustworthy, because list-item
-buffering, fence pairing and table detection all depend on lookahead that runs
-past the fragment's end. It is that the fragment is never trusted on its own.
-Each seam is proved by re-parsing the fragment together with the one neighbour
-on that side and requiring three things: that no top-level child straddles the
-seam, that the fragment comes back with exactly the children and errors it
-produced in isolation, and that the neighbour comes back byte-identical.
-Anything the fragment leaves open --- an unclosed fence or div --- swallows
-greedily, so it reaches that neighbour first and cannot hide.
+The two window tiers parse to the end of the document. The region tier parses a
+bounded fragment and checks its boundaries against neighboring blocks. A
+fragment parsed in isolation is unreliable because list-item buffering, fence
+pairing, and table detection depend on lookahead beyond its end. To check each
+seam, the parser reparses the fragment together with the neighboring block on
+that side. The check succeeds only if no top-level child straddles the seam, the
+fragment produces exactly the same children and errors as it did in isolation,
+and the neighbor remains byte-identical. An open construct, such as an unclosed
+fence or div, consumes following content greedily and therefore reaches the
+neighboring block, where the check catches it.
 
-Two constructs reach further than one neighbour and no boundary parse can catch
-them: a fence can pair with an opener several blocks back (under the Pandoc
-dialect an *unclosed* fence is ordinary paragraph text, so the opener looks
-inert), and a multiline-table border pairs across arbitrarily many
-blank-line-separated blocks. The region tier answers those by comparing the
-region's delimiter lines before and after the edit: if they are unchanged, the
-document's whole sequence of them is unchanged, so no pairing anywhere can move.
-That admits editing prose, a table cell, or a code block's body, and declines an
-edit that adds, removes, or alters a delimiter.
+Two constructs can reach beyond one neighbor and escape any boundary parse. A
+fence can pair with an opener several blocks back. Under the Pandoc dialect, an
+*unclosed* fence is ordinary paragraph text, so the opener looks inert. A
+multiline-table border can pair across arbitrarily many blank-line-separated
+blocks. The region tier guards against both cases by comparing the region's
+delimiter lines before and after the edit. If they are unchanged, the document's
+entire sequence of delimiter lines is unchanged, so no pairing can move. This
+permits edits to prose, a table cell, or a code block's body, and rejects edits
+that add, remove, or alter a delimiter.
 
-All four tiers stay because all four are used. Over the fuzzer's real-document
-corpus, the region tier takes about three quarters of splices, the section
-window a seventh, and the suffix window and token tier the rest; on heading-less
-documents the suffix window becomes the workhorse instead.
-`crates/panache-parser/tests/incremental_fuzz.rs` prints that histogram on every
+All four tiers remain because all four are used. Across the fuzzer's corpus of
+real documents, the region tier handles about three quarters of splices, the
+section window a seventh, and the suffix window and token tier the rest. On
+documents without headings, the suffix window becomes the workhorse instead.
+`crates/panache-parser/tests/incremental_fuzz.rs` prints this histogram on every
 run.
 
-Four properties make reading and writing that channel from inside an otherwise
-pure query sound:
+Four properties make the side channel safe to read and write from an otherwise
+pure query:
 
-- A successful splice is byte-identical to a full parse, tree *and* syntax
-  errors. The parser asserts this on every splice in debug builds; setting
-  `PANACHE_REPARSE_ORACLE=1` adds a second check against a real full parse
-  before anything is stored. Both oracles cost a full parse each, so both are
-  compiled out of release builds; what survives there is the one part of the
-  invariant that is `O(1)` --- the spliced tree spans exactly the text it was
-  spliced from. That check runs in every build and *falls back* to a full parse
-  rather than panicking, because `parsed_document` feeds formatting, which
-  writes the user's file.
-- Every guard declines to `None` rather than guessing, so the query's fallback
-  is an ordinary full parse.
-- Two guards decline for cost rather than correctness, one per tier that has a
-  cost worth guarding. Both *window* strategies parse their window to the end of
-  the document, so a window that starts near the top of the file re-derives
-  nearly all of it and then pays a splice on top: measured, that is a 5-10% loss
-  against simply parsing the file again, so a window leaving more than 85% of
-  the document downstream is refused. The *region* tier answers a region with a
-  fragment parse plus up to two neighbour-sized boundary parses --- roughly
-  three region-sized parses --- so a region covering more than a quarter of the
-  document is refused for the same reason, counting its neighbours as well as
-  itself. Both are evaluated before any parse runs, and a whole-document
-  replacement (which some clients send on every format-on-save) fails both and
-  costs the full parse it would have cost anyway. `benches/lsp_incremental.rs`
-  carries the measurements and a case on each side of both thresholds.
-- The base is stored last, after every fallible step, so a panic or a salsa
-  cancellation mid-query can never leave a base whose text and tree disagree.
-  Stores are not ordered across revisions, so an older base can overwrite a
-  newer one; each is internally consistent, and a stale base only widens the
-  next diff.
+- A successful splice is byte-identical to a full parse, including both the tree
+  and syntax errors. The parser asserts this on every splice in debug builds.
+  Setting `PANACHE_REPARSE_ORACLE=1` adds a second check against a full parse
+  before anything is stored. Each oracle costs a full parse, so both are
+  compiled out of release builds. Every build still checks one `O(1)` invariant:
+  the spliced tree spans exactly the text it was spliced from. If this check
+  fails, the query falls back to a full parse rather than panicking. This
+  matters because `parsed_document` feeds the formatter, which writes the user's
+  file.
 
-Only the LSP admits a document to the channel, and only while the setting is on ---
-which it is unless a client or `PANACHE_INCREMENTAL_PARSING=0` says otherwise.
-Switched off, nothing is admitted, so every parse is a full parse.
+- Every guard returns `None` when it cannot accept a splice, so the query falls
+  back to an ordinary full parse.
+
+- Two guards reject splices on cost grounds. Both *window* strategies parse
+  their window to the end of the document. A window starting near the top of the
+  file reparses nearly all of it and adds the cost of a splice. Measurements
+  show a 5-10% loss compared with a full parse, so the guard rejects windows
+  that cover more than 85% of the document.
+
+  The *region* tier performs a fragment parse and up to two boundary parses,
+  each including a neighbor, amounting to roughly three region-sized parses. For
+  the same reason, its guard rejects a region that covers more than a quarter of
+  the document, counting its neighbors as well as itself. Both guards run before
+  any parse. A whole-document replacement, which some clients send on every
+  format-on-save, fails both guards and incurs only the full parse it would have
+  needed anyway. `benches/lsp_incremental.rs` contains the measurements and a
+  case on each side of both thresholds.
+
+- The base is stored last, after every fallible step, so a panic or a Salsa
+  cancellation during the query cannot leave a base whose text and tree
+  disagree. Stores are not ordered across revisions, so an older base can
+  overwrite a newer one. Each is internally consistent, and a stale base only
+  widens the next diff.
+
+Only the language server adds documents to the side channel, and only while
+incremental parsing is enabled. It is enabled by default unless a client or
+`PANACHE_INCREMENTAL_PARSING=0` disables it. When it is disabled, no documents
+are added, so every parse is a full parse.
 
 ### Durability and Invalidation Policy
 
-Panache uses Salsa durability levels to reduce unnecessary revalidation work in
-LSP mode.
+Panache uses Salsa durability levels to reduce unnecessary revalidation in LSP
+mode.
 
 #### Durability assignments
 
 `LOW`
-:   Open-buffer text updates (`didOpen`, `didChange`) for the active document.
+:   Updates to the active document's open-buffer text (`didOpen`, `didChange`).
 
 `MEDIUM`
-:   Per-document config updates and file-watcher refreshes for already cached
-    dependency files.
+:   Per-document config updates and file-watcher refreshes for dependency files
+    already in the cache.
 
 `HIGH`
-:   Disk-loaded dependency files cached from the project graph.
+:   Dependency files loaded from disk and cached from the project graph.
 
 #### Invalidation policy
 
-- Edits while typing should invalidate low-durability data aggressively, but
-  should not force broad revalidation of stable dependency data.
-- Config reloads and watcher events use medium durability so changes propagate,
-  but with less churn than open-buffer edits.
+- Edits while typing should invalidate low-durability data aggressively without
+  forcing broad revalidation of stable dependency data.
+- Config reloads and watcher events use medium durability so changes propagate
+  with less churn than open-buffer edits.
 - Disk-cached dependencies use high durability so unrelated low-frequency edits
   do not repeatedly revalidate those inputs.
 
 #### Verification and measurement
 
-- Durability revalidation measurement harness: `tests/durability_bench.rs`
-  (ignored by default).
+The durability revalidation measurement harness is `tests/durability_bench.rs`.
+It is ignored by default. Run it with:
 
-- Run with:
+```bash
+cargo test --test durability_bench durability_revalidation_bench -- --ignored --nocapture
+```
 
-  ```bash
-  cargo test --test durability_bench durability_revalidation_bench -- --ignored --nocapture
-  ```
-
-- Policy regression tests are in `src/salsa.rs` and validate that
-  high-durability stable inputs avoid revalidation under low-durability updates,
-  while low-durability stable inputs are revalidated.
+Policy regression tests in `src/salsa.rs` verify that stable high-durability
+inputs avoid revalidation under low-durability updates, while stable
+low-durability inputs are revalidated.
