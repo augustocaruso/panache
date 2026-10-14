@@ -1320,27 +1320,6 @@ Preservation applies to the math content, not its Markdown host. Display
 delimiters and their configured outer indentation may still be normalized by the
 ordinary Markdown formatter.
 
-#### Intentional Badness Differences
-
-Panache uses a pinned Badness release as a development-only formatting oracle;
-Badness is not a runtime dependency. The remaining differences are deliberate or
-compensate for a pinned oracle defect:
-
-- Markdown inline hosts flatten layout lines unless a TeX `%` comment requires a
-  newline. A standalone display environment owns its indentation instead of
-  receiving `math-indent` around the environment markers.
-- A soft newline before a signature-proven command argument collapses like other
-  insignificant whitespace.
-- Unary signs bind tightly even when the author inserted spaces (`- x` → `-x`).
-  Panache also applies TeX's binary-to-ordinary coercion after punctuation; the
-  pinned Badness sequencer does not.
-- Panache keeps scripted composite relations intact (`<=_i`, `>=_i`, `==_i`).
-  The pinned Badness formatter incorrectly splits their relation heads from
-  their scripts.
-- Panache wraps independent equations at top-level punctuation. The pinned
-  Badness formatter treats their relations as one chain and can detach an
-  equation's left-hand side from its relation.
-
 ## Inline HTML Spans
 
 Panache preserves line breaks and attribute whitespace in inline `<span>` tags.
