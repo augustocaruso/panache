@@ -15,10 +15,10 @@ documents, whole repositories, and editor sessions. Tools differ in supported
 syntax, formatting policy, lint coverage, and editor features, so timings should
 be read alongside the work each tool performs.
 
-The formatting and linting comparisons cover Markdown and Quarto documents; R
-Markdown is outside the current corpus. The language-server comparisons use
-separate Markdown and Quarto workloads to measure startup, responses to editor
-requests, performance after edits, and memory use.
+The formatting and linting comparisons cover Markdown and Quarto documents. The
+language-server comparisons use separate Markdown and Quarto workloads to
+measure startup, responses to editor requests, performance after edits, and
+memory use.
 
 The timing charts use a logarithmic scale in milliseconds; lower is faster.
 Formatting and linting charts show mean times, with colors identifying documents
