@@ -2373,6 +2373,27 @@ impl<'a> Parser<'a> {
                         }
                     }
 
+                    // A buffered list item's text follows the same interruption
+                    // rule as a paragraph. Shallower markers start sibling lists.
+                    if matches!(block_match.effect, BlockEffect::OpenList)
+                        && self.config.dialect == crate::options::Dialect::CommonMark
+                        && lists::in_list(&self.containers)
+                        && (self.is_paragraph_open() || self.is_list_item_content_open())
+                        && !dispatcher_ctx.in_marker_only_list_item
+                        && let Some(prepared) = block_match
+                            .payload
+                            .as_ref()
+                            .and_then(|p| p.downcast_ref::<super::block_dispatcher::ListPrepared>())
+                        && prepared.indent_cols >= paragraphs::current_content_col(&self.containers)
+                        && lists::marker_start_number(&prepared.marker)
+                            .is_some_and(|start| start != 1)
+                    {
+                        self.append_lazy_continuation_line(
+                            line_to_append.unwrap_or(self.lines[self.pos]),
+                        );
+                        return LineDispatch::consumed(1);
+                    }
+
                     if matches!(block_match.effect, BlockEffect::OpenList)
                         && self.try_lazy_list_continuation(block_match, content)
                     {

@@ -998,6 +998,7 @@ golden_test_cases!(
     list_item_fence_after_text_pandoc,
     list_item_overindented_fence_interrupts_commonmark,
     list_item_overindented_fence_is_lazy_pandoc,
+    list_item_ordered_paragraph_continuation_commonmark,
     list_item_fenced_code_first_line_commonmark,
     list_item_fenced_div_marker_line_pandoc,
     list_item_fenced_div_marker_line_unclosed_pandoc,

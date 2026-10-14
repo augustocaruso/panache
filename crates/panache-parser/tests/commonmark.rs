@@ -54,6 +54,17 @@ fn matches_expected(example: &SpecExample, rendered: &str) -> bool {
     normalize_html(rendered) == normalize_html(&example.expected_html)
 }
 
+#[test]
+fn commonmark_ordered_sublist_paragraph_continuation() {
+    let input =
+        include_str!("fixtures/cases/list_item_ordered_paragraph_continuation_commonmark/input.md");
+    let tree = parse(input, Some(commonmark_options()));
+    assert_eq!(
+        normalize_html(&html_renderer::render(&tree)),
+        normalize_html("<ol>\n<li>a\n9. b</li>\n</ol>\n")
+    );
+}
+
 fn read_allowlist(path: &Path) -> BTreeSet<u32> {
     if !path.exists() {
         return BTreeSet::new();

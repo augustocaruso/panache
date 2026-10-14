@@ -2,7 +2,7 @@ use super::helpers::{
     assert_block_kinds, count_children, find_all, find_first, parse_blocks,
     parse_blocks_pandoc_3_9, parse_blocks_with_config,
 };
-use crate::options::{Extensions, Flavor, ParserOptions};
+use crate::options::{Dialect, Extensions, Flavor, ParserOptions};
 use crate::syntax::{SyntaxKind, SyntaxNode};
 
 #[test]
@@ -962,6 +962,81 @@ fn ordered_marker_at_content_column_opens_nested_list_under_pandoc_3_9() {
             lists.len(),
             2,
             "marker at the outer item's content column should nest: {input:?}"
+        );
+        assert_eq!(tree.text().to_string(), input, "parse must stay lossless");
+    }
+}
+
+#[test]
+fn commonmark_non_one_ordered_sublist_does_not_interrupt_paragraph() {
+    let config = ParserOptions {
+        flavor: Flavor::CommonMark,
+        dialect: Dialect::CommonMark,
+        extensions: Extensions::for_flavor(Flavor::CommonMark),
+        ..Default::default()
+    };
+    for (input, expected_lists, paragraph_start) in [
+        ("1. a\n   9. b\n", 1, "a"),
+        ("1. a\n   9) b\n", 1, "a"),
+        ("- a\n  9. b\n", 1, "a"),
+        ("1. a\n   continued\n   9. b\n", 1, "a"),
+        ("1. a\n\n   para\n   9. b\n", 1, "para"),
+        ("1. a\n   1. inner\n      9. b\n", 2, "inner"),
+        ("> 1. a\n>    9. b\n", 1, "a"),
+        ("1. a\n       9. b\n", 1, "a"),
+    ] {
+        let tree = parse_blocks_with_config(input, &config);
+        assert_eq!(
+            find_all(&tree, SyntaxKind::LIST).len(),
+            expected_lists,
+            "a child list starting past 1 must stay paragraph text: {input:?}"
+        );
+        let text = tree
+            .descendants()
+            .find(|node| {
+                matches!(node.kind(), SyntaxKind::PLAIN | SyntaxKind::PARAGRAPH)
+                    && node.text().to_string().contains("9")
+            })
+            .expect("the rejected marker should stay in the paragraph");
+        assert!(
+            text.text()
+                .to_string()
+                .trim_start()
+                .starts_with(paragraph_start),
+            "{input:?}"
+        );
+        assert_eq!(tree.text().to_string(), input, "parse must stay lossless");
+    }
+}
+
+#[test]
+fn commonmark_ordered_list_interruption_rule_preserves_valid_lists() {
+    let config = ParserOptions {
+        flavor: Flavor::CommonMark,
+        dialect: Dialect::CommonMark,
+        extensions: Extensions::for_flavor(Flavor::CommonMark),
+        ..Default::default()
+    };
+    for (input, expected_lists, expected_items) in [
+        ("1. a\n   1. b\n", 2, 2),
+        ("1. a\n   - b\n", 2, 2),
+        ("1. a\n\n   9. b\n", 2, 2),
+        ("1.\n   9. b\n", 2, 2),
+        ("1. a\n9. b\n", 1, 2),
+        ("1. a\n9) b\n", 2, 2),
+        ("1. a\n   1. b\n   9. c\n", 2, 3),
+        ("1. a\n   1. b\n     9. c\n", 2, 3),
+    ] {
+        let tree = parse_blocks_with_config(input, &config);
+        assert_eq!(
+            find_all(&tree, SyntaxKind::LIST).len(),
+            expected_lists,
+            "{input:?}"
+        );
+        assert_eq!(
+            find_all(&tree, SyntaxKind::LIST_ITEM).len(),
+            expected_items,
+            "{input:?}"
         );
         assert_eq!(tree.text().to_string(), input, "parse must stay lossless");
     }
