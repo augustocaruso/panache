@@ -26,8 +26,9 @@ To check formatting without writing changes:
 panache format --check .
 ```
 
-The check exits nonzero when files need formatting. Both modes use project
-configuration and file exclusions; see [Configuration](configure.qmd).
+The command exits with a nonzero status when files need formatting. Both modes
+follow the project's configuration and file exclusions. See
+[Configuration](configure.qmd).
 
 To read from standard input and write the result to standard output, supply a
 filename so Panache can select the document's flavor:
@@ -60,9 +61,9 @@ Choose a wrapping mode to suit how you write:
   | `semantic` | Keep line breaks and add a break after each sentence. |
 
 `sentence` and `semantic` do not limit line length. Sentence detection accounts
-for common abbreviations and the document's language; see [Sentence-Wrapping
-Abbreviations](../reference/configuration.qmd#no-break-abbreviations) if you
-need to customize it.
+for common abbreviations and the document's language. See [Sentence-Wrapping
+Abbreviations](../reference/configuration.qmd#no-break-abbreviations) to
+customize the abbreviations.
 
 For a single run, you can override a setting on the command line:
 
@@ -71,20 +72,20 @@ panache format -o wrap=sentence document.qmd
 ```
 
 The [configuration reference](../reference/configuration.qmd#formatting-style)
-provides all formatting options and their defaults.
+lists all formatting options and their defaults.
 
 ### Format Embedded Code
 
 Panache formats code fences and their attributes. To format the code inside
-those fences, configure an external formatter and install it on `PATH`. See
-[Configure Linting and Embedded
+those fences, configure an external formatter and make it available on `PATH`.
+See [Configure Linting and Embedded
 Code](configure.qmd#configure-linting-and-embedded-code) for setup and the
 [formatter presets](../reference/formatter-presets.qmd) for supported tools.
 
 ### Ignore Directives
 
-Use HTML comments to keep a region's formatting as written. This is useful for
-ASCII diagrams or other content whose spacing matters:
+Use HTML comments to preserve a region's formatting. This is useful for ASCII
+diagrams or other content whose spacing matters:
 
 ```markdown
 <!-- panache-ignore-format-start -->
@@ -123,14 +124,15 @@ Output
     wrapping mode for your project.
     ```
 
-Hard line breaks are kept in every wrapping mode. Panache writes them as a
-backslash at the end of the line, replacing the less visible two-space form.
+Panache preserves hard line breaks in every wrapping mode. It writes them as a
+backslash at the end of the line, which is easier to see than two trailing
+spaces.
 
 ### Headings
 
 Panache uses ATX headings (`#`, `##`, and so on), removes decorative closing
-hashes, and adds blank lines around headings. Attributes use a single space
-between entries.
+hashes, and adds blank lines around headings. It separates attribute entries
+with a single space.
 
 Input
 
@@ -172,8 +174,8 @@ Output
     An *important* point and a **strong** claim.
     ```
 
-Literal markers may be escaped so they remain text when the document is read
-again.
+Panache may escape literal emphasis markers so they remain text when the
+document is parsed again.
 
 ### Code
 
@@ -223,9 +225,10 @@ Output
     - Item 2
     ```
 
-Ordered and fancy lists keep their numbering style, with continuation text
-aligned to the item text. Task lists use `- [ ]` and `- [x]`, including for
-nested tasks. For parsers that require four-space nesting, enable the
+Panache preserves the numbering style of ordered and fancy lists and aligns
+continuation text with the item text. Task lists use `- [ ]` and `- [x]` for
+both top-level and nested tasks. For parsers that require four spaces of
+indentation per nesting level, enable the
 [`four-space-rule`](../reference/configuration.qmd#lists) extension.
 
 #### Definition Lists
@@ -267,17 +270,17 @@ Output
 
 ### Tables
 
-Panache formats pipe, grid, simple, and multiline tables. Pipe, simple, and
-multiline tables are indented two spaces by default; set
+Panache formats pipe, grid, simple, and multiline tables. By default, it indents
+pipe, simple, and multiline tables by two spaces. Set
 [`table-indent = 0`](../reference/configuration.qmd#table-indentation) to keep
-them at the left margin. Grid tables stay at the margin so Pandoc recognizes
-them as tables.
+them at the left margin. Grid tables stay at the left margin so Pandoc
+recognizes them as tables.
 
 #### Pipe Tables
 
-Cells are padded to show the column alignment in the source. In Pandoc-based
-flavors, Panache preserves separator widths when they control the rendered
-column proportions.
+Panache pads cells to show each column's alignment in the source. In
+Pandoc-based flavors, Panache preserves separator widths when they control the
+rendered column proportions.
 
 Input
 
@@ -329,8 +332,8 @@ Output
 
 #### Simple Tables
 
-Columns are sized to fit their contents, with cell text aligned according to the
-header. Table captions move below the table and use the `:` prefix.
+Panache sizes columns to fit their contents and aligns cell text according to
+the header. It moves captions below the table and prefixes them with `:`.
 
 Input
 
@@ -358,9 +361,9 @@ Output
 
 #### Multiline Tables
 
-Prose wraps within the existing column widths, and extra blank lines between
-rows are removed. Panache keeps the widths because they affect the rendered
-layout. Code spans, links, and math stay intact when cells wrap.
+Panache wraps prose within the existing column widths and removes extra blank
+lines between rows. It keeps the widths because they affect the rendered layout.
+Code spans, links, and math stay intact when cells wrap.
 
 Input
 
@@ -427,8 +430,8 @@ Output
 
 By default, long display equations wrap at relations and operators to fit
 `line-width`. Use `math = "preserve"` to keep your line breaks, or
-`math = "verbatim"` to leave the math content untouched. Malformed math and
-command arguments Panache cannot interpret are left as written. See [Math
+`math = "verbatim"` to leave the math content untouched. Panache leaves
+malformed math and command arguments it cannot interpret unchanged. See [Math
 Formatting](../reference/configuration.qmd#math-formatting) for modes, delimiter
 styles, and indentation settings.
 
@@ -451,9 +454,9 @@ Output
 
 ### Fenced Divs
 
-Panache normalizes attributes and removes blank lines at the edges of the body.
-Nested divs use two more colons than their parent, making their boundaries easy
-to distinguish.
+Panache normalizes attributes and removes blank lines at the start and end of
+the body. Nested divs use two more colons than their parent, making their
+boundaries easy to distinguish.
 
 Input
 
@@ -482,9 +485,9 @@ Output
 ### MyST Directives
 
 In the MyST flavor, Panache normalizes directive options and separates them from
-the body with a blank line. It formats prose bodies, but preserves literal
-bodies such as code and math. It also preserves `toctree` entries so each stays
-on its own line.
+the body with a blank line. It formats prose in directive bodies but preserves
+literal content, such as code and math. It also keeps each `toctree` entry on
+its own line.
 
 Input
 
@@ -516,9 +519,9 @@ Output
 
 Enable
 [`python-markdown-admonitions`](../reference/configuration.qmd#admonitions) to
-format `!!!` admonitions, and `pymdownx-details` for collapsible `???` and
-`???+` blocks. Panache uses four-space body indentation and formats the body
-like ordinary content.
+format `!!!` admonitions and `pymdownx-details` to format collapsible `???` and
+`???+` blocks. Panache indents the body by four spaces and formats it like
+ordinary content.
 
 Input
 
@@ -538,8 +541,8 @@ Output
 
 ### Footnotes
 
-Footnote text follows the wrapping mode. Continuation blocks are indented four
-spaces, as in list items.
+Footnote text follows the chosen wrapping mode. Continuation blocks are indented
+four spaces, as in list items.
 
 Input
 
@@ -589,7 +592,7 @@ delimiters.
 
 ### Blank Lines
 
-Multiple blank lines between blocks collapse to one:
+Panache reduces multiple blank lines between blocks to one:
 
 Input
 
