@@ -1,29 +1,17 @@
 ---
 title: Formatting
 description: >
-  This section provides instructions and examples for using Panache to format
-  your documents, showing examples of the formatting rules and how to customize
-  them.
+  Format documents with Panache and see how it lays out Markdown, tables, math,
+  and code.
 ---
 
-Panache's formatting rules are designed to produce clean, consistent Markdown
-output that adheres to common style guidelines while preserving the semantic
-meaning of the original document. We often try to stick quite close to the
-output of Pandoc's writer, but not always. Panache is an opinionated formatter
-and provides a minimal set of options to configure the formatting behavior.
+Panache formats Markdown source to make it easy to read and consistent across a
+project. It preserves the meaning of your document, and running it again on an
+already formatted document produces the same output.
 
-The golden rule is that a markdown document should be readable in its raw form,
-which for instance has guided the decision to convert `---` horizontal rules to
-a full line of hyphens by default (configurable via `horizontal-rule-style`, see
-[Horizontal Rulers](#horizontal-rulers)).
+## Using the Formatter
 
-Another important principle is that Panache's formatter is *idempotent*: running
-the formatter multiple times on the same document should not produce different
-output after the first run. To make this work, Panache therefore needs to escape
-certain characters that might otherwise cause semantic drift on subsequent
-runs^[This is precisely what Pandoc's writer also does.]
-
-## Format and Check Files
+### Format and Check Files
 
 Format a document in place, or pass a directory to format its supported files:
 
@@ -39,435 +27,163 @@ panache format --check .
 ```
 
 The check exits nonzero when files need formatting. Both modes use project
-configuration and file exclusions; see [Configuration](configure.qmd). External
-formatters configured for code blocks must be installed on `PATH`.
+configuration and file exclusions; see [Configuration](configure.qmd).
 
-To read from standard input and write the formatted document to standard output,
-supply a filename so Panache can select the document's flavor:
+To read from standard input and write the result to standard output, supply a
+filename so Panache can select the document's flavor:
 
 ```sh
 panache --stdin-filename=document.qmd format <document.qmd
 ```
 
 See [Editor Setup](lsp.qmd) for formatting while editing and
-[Integrations](integrations.qmd) for CI, pre-commit, and dprint. The sections
-below explain how Panache lays out each kind of content.
+[Integrations](integrations.qmd) for CI, pre-commit, and dprint.
 
-## Text Wrapping
+### Choose a Wrapping Mode
 
-### Paragraphs
-
-Panache supports four modes of text wrapping for paragraphs, which are
-controlled via the [configuration](../reference/configuration.qmd) file:
+By default, Panache reflows paragraphs to a line width of 80 columns. Put your
+project's preferences in `panache.toml`:
 
 ```toml
 [format]
-wrap = "reflow" # or "preserve", "sentence", or "semantic"
+line-width = 80
+wrap = "reflow"
 ```
 
-The default is `reflow`, which reformats paragraphs to fit within the number of
-columns specified by the `line-width` configuration option (default 80). Columns
-are Unicode display columns, not characters or bytes: East Asian wide characters
-count as two, so `x宮` is 3 columns wide (see [Line
-Width](../reference/configuration.qmd#line-width)). If `wrap` is set to
-`preserve`, Panache will keep existing line breaks and not reflow paragraphs. If
-`wrap` is set to `sentence`, Panache will break lines at sentence boundaries,
-ensuring that each sentence starts on a new line.
+Choose a wrapping mode to suit how you write:
 
-If `wrap` is set to `semantic`, Panache enforces [semantic line
-breaks](https://sembr.org/): it keeps the line breaks you already placed (for
-example after a comma or clause) *and* adds a break at every sentence boundary
-you missed. Unlike `sentence`, it never reflows away an existing break, and like
-`sentence` it ignores `line-width`---a long sentence with no internal break is
-left on a single line. This makes it the non-destructive companion to
-`sentence`: use `sentence` to normalize an arbitrarily-wrapped document into
-one-sentence-per-line, and `semantic` to augment a document you are already
-hand-breaking.
+  | Mode       | Behavior                                              |
+  | ---------- | ----------------------------------------------------- |
+  | `reflow`   | Rewrap paragraphs to fit `line-width`.                |
+  | `preserve` | Keep existing line breaks.                            |
+  | `sentence` | Put each sentence on its own line.                    |
+  | `semantic` | Keep line breaks and add a break after each sentence. |
 
-In `sentence` and `semantic` modes, Panache applies conservative no-break rules
-for common abbreviations (for example `i.e.` and `e.g.`), so these do not
-trigger sentence splits by themselves.
+`sentence` and `semantic` do not limit line length. Sentence detection accounts
+for common abbreviations and the document's language; see [Sentence-Wrapping
+Abbreviations](../reference/configuration.qmd#no-break-abbreviations) if you
+need to customize it.
 
-Citations and footnote references immediately after sentence-ending punctuation
-stay attached to the preceding sentence. For example,
-`Text.[^note] Next sentence.` breaks after `[^note]`.
+For a single run, you can override a setting on the command line:
 
-A sentence break is also suppressed when it would push the next token to the
-start of a line where the parser would read it as the opening of a block---an
-ordered or unordered list marker (`1.`, `-`, `+`, `1)`), an ATX heading (`#`), a
-blockquote (`>`), or a setext/thematic rule (`---`, `===`). For example, prose
-that embeds an inline enumeration stays one paragraph:
-`Hear from us. 1. Tell us your name. 2. Describe it.` keeps each marker inline
-rather than promoting the text into a list. This guarantees wrapping never
-changes how the document parses, which in turn keeps `sentence`/`semantic`
-formatting idempotent (`panache format` followed by `panache format --check`
-always succeeds). Genuine, well-formed lists are unaffected and continue to wrap
-normally.
-
-Within a list item, `semantic` wrapping escapes literal fancy-list markers such
-as `a.` and `II)` at the start of a line. This keeps underindented continuation
-text from becoming a nested list when its indentation is normalized, and keeps
-each marker attached to its following text.
-
-The abbreviation list follows the document language. When metadata provides
-`lang` (as in Quarto and Pandoc frontmatter), Panache selects a built-in profile
-for it; profiles ship for English, Czech, German, Spanish, and French, and
-unknown languages fall back to English. You can also set a project-wide fallback
-language and extend the list with your own tokens---see [Sentence-Wrapping
-Abbreviations](../reference/configuration.qmd#no-break-abbreviations) in the
-configuration reference.
-
-Input
-
-:   ```markdown
-    First sentence with a [link text](https://example.com) and inline math $a + b = c$. Second sentence; third sentence!
-    ```
-
-Output (`"reflow"`)
-
-:   ```markdown
-    First sentence with a [link text](https://example.com) and inline math
-    $a + b = c$. Second sentence; third sentence!
-    ```
-
-Output (`"sentence"`)
-
-:   ```markdown
-    First sentence with a [link text](https://example.com) and inline math $a + b = c$.
-    Second sentence; third sentence!
-    ```
-
-For `semantic`, consider input where the author has already broken a line after
-a clause:
-
-Input
-
-:   ```markdown
-    A longstanding problem asks: whether the bound is tight. It is,
-    as the appendix shows.
-    ```
-
-Output (`"semantic"`)
-
-:   ```markdown
-    A longstanding problem asks: whether the bound is tight.
-    It is,
-    as the appendix shows.
-    ```
-
-The break after `It is,` is preserved (the author put it there), while a new
-break is added after `tight.` (a sentence boundary).
-
-### Hard Line Breaks
-
-Hard line breaks, which are created either by ending a line with two or more
-spaces or by using a backslash (`\n`), are preserved regardless of the wrapping
-mode:
-
-Input (with two spaces at the end of the first line)
-
-:   ```markdown
-    First line  
-    Second line
-    ```
-
-Output
-
-:   ```markdown
-    First line\
-    Second line
-    ```
-
-A tab at the end of a line counts as a hard break too, the same way pandoc reads
-it.
-
-Trailing whitespace that is *not* a hard break is removed, again under every
-wrapping mode. That covers a single trailing space, which never made a break,
-and any run on the last line of a block, which pandoc discards because a hard
-break only separates lines *within* a block. So this:
-
-Input (trailing spaces marked `.`)
-
-:   ```markdown
-    Only paragraph line..
-
-    A single trailing space.
-    continues the sentence
-    ```
-
-Output
-
-:   ```markdown
-    Only paragraph line
-
-    A single trailing space
-    continues the sentence
-    ```
-
-Verbatim content is exempt: trailing whitespace inside code blocks, code spans,
-and math is content, so it is left alone.
-
-### YAML frontmatter and chunk options
-
-Under a wrapping mode (`reflow`, `sentence`, or `semantic`), Panache also wraps
-prose held in YAML---both document frontmatter and Quarto/R&nbsp;Markdown
-hashpipe (`#|`) chunk options---following the same wrap mode as the document
-body. *Folded* block scalars (those introduced with `>`, including the `>-` and
-`>+` chomping variants) and plain scalars are reflowed; a folded scalar's single
-line breaks fold to spaces, so this never changes the value:
-
-- `reflow` rejoins the whole paragraph and refills it to `line-width`, so a
-  hand-wrapped scalar with uneven lines is tidied up (short lines are joined).
-- `sentence` puts one sentence per line; `semantic` keeps your existing line
-  breaks and adds breaks at sentence boundaries.
-
-Blank lines and more-indented lines inside a folded scalar are significant and
-left in place. Literal block scalars (`|`) are left untouched---their line
-breaks are significant content. Under `wrap = "preserve"`, nothing in the YAML
-is reflowed.
-
-A long **double-quoted** scalar that overflows `line-width` is converted to a
-folded `>-` block scalar so it can wrap, for example a long `description:` or
-`title:`:
-
-```yaml
-description: >-
-  This is a very long description that happens to exceed the line-length cap by
-  a fair bit, and gets folded so it wraps.
+```sh
+panache format -o wrap=sentence document.qmd
 ```
 
-This happens only when it is completely value-preserving. A scalar is left
-quoted (and may stay over the limit) if its value contains escape sequences
-(`\n`, `\t`, a unicode escape, ...), leading or trailing whitespace, or control
-characters, or if it already spans multiple lines. A single-quoted scalar with
-simple content is normalized to double quotes first and then folds the same way;
-one that keeps its single quotes (because it contains an apostrophe) is left
-untouched.
+The [configuration reference](../reference/configuration.qmd#formatting-style)
+provides all formatting options and their defaults.
 
-A few top-level frontmatter keys are exempt even under a wrapping mode, because
-a downstream non-YAML tool reads their value line by line. Currently that is
-`vignette`: R's vignette engine scans the raw `%\VignetteEngine{...}` lines, so
-Panache keeps each directive on its own line rather than folding them together.
+### Format Embedded Code
 
-Input
+Panache formats code fences and their attributes. To format the code inside
+those fences, configure an external formatter and install it on `PATH`. See
+[Configure Linting and Embedded
+Code](configure.qmd#configure-linting-and-embedded-code) for setup and the
+[formatter presets](../reference/formatter-presets.qmd) for supported tools.
 
-:   ````markdown
-    ```{{python}}
-    #| fig-cap: >
-    #|   Suboptimality versus wall-clock time on the Rosenbrock function (200-iteration cap, `Vec<f64>` backend). Lower and further left is better.
-    ```
-    ````
+### Ignore Directives
 
-Output
+Use HTML comments to keep a region's formatting as written. This is useful for
+ASCII diagrams or other content whose spacing matters:
 
-:   ````markdown
-    ```{{python}}
-    #| fig-cap: >
-    #|   Suboptimality versus wall-clock time on the Rosenbrock function
-    #|   (200-iteration cap, `Vec<f64>` backend). Lower and further left is
-    #|   better.
-    ```
-    ````
+```markdown
+<!-- panache-ignore-format-start -->
+This    paragraph   has    custom     spacing
+that  will   be   preserved   exactly.
+<!-- panache-ignore-format-end -->
+```
 
-## Headings
+To disable both formatting and linting for a region, use
+`<!-- panache-ignore-start -->` and `<!-- panache-ignore-end -->` instead.
 
-### ATX Headings
+## Formatting Examples
 
-Headings are normalized with consistent spacing. A closing `#` run in an ATX
-heading is removed. Spacing between the `#` characters and the heading text is
-normalized to a single space. Headings are separated from surrounding content by
-a blank line.
+The examples below show Panache's default formatting for Quarto documents,
+unless another setting or flavor is specified. The aim is readable source:
+consistent markers, clear indentation, and spacing that makes the document's
+structure visible. Some constructs, such as definition lists and fenced divs,
+are available only in [flavors](../reference/configuration.qmd#flavor) that
+support them.
 
-Repeated spaces and tabs in heading prose collapse to a single space, including
-inside emphasis and link labels. Literal content such as code spans and link
-destinations keeps its spacing. The GFM flavor preserves internal heading
-spacing because changing it can change GitHub's automatic anchors.
+### Text Wrapping
 
-A `#` that belongs to the heading's *text* is kept, since dropping it would
-change what the heading says. A run is only decoration when it ends the line, so
-`# foo # #` keeps a closing run to hold the first hash in the text, and an
-escaped hash (`# foo \#`) is text under every flavor.
+Paragraphs wrap to `line-width`. With `line-width = 60`:
 
 Input
 
 :   ```markdown
-    #Heading 1
+    Panache wraps paragraphs to make the source easier to read and keeps related words together. You can choose a different wrapping mode for your project.
+    ```
+
+Output
+
+:   ```markdown
+    Panache wraps paragraphs to make the source easier to read
+    and keeps related words together. You can choose a different
+    wrapping mode for your project.
+    ```
+
+Hard line breaks are kept in every wrapping mode. Panache writes them as a
+backslash at the end of the line, replacing the less visible two-space form.
+
+### Headings
+
+Panache uses ATX headings (`#`, `##`, and so on), removes decorative closing
+hashes, and adds blank lines around headings. Attributes use a single space
+between entries.
+
+Input
+
+:   ```markdown
+    Introduction
+    ============
     Text
 
-    ##  Heading 2
+    ##  Results  ##
 
-    ###   Heading 3
+    ### Details{.important  .highlight }
     ```
 
 Output
 
 :   ```markdown
-    # Heading 1
+    # Introduction
 
     Text
 
-    ## Heading 2
+    ## Results
 
-    ### Heading 3
+    ### Details {.important .highlight}
     ```
 
-### Heading Attributes
+### Emphasis and Strong
 
-Attributes are preserved and formatted to have a single space between the class
-names and no space between the class names and the opening `{` character.
+Panache uses asterisks for emphasis and strong emphasis:
 
 Input
 
 :   ```markdown
-    ## Heading with classes{.important  .highlight }
+    An _important_ point and a __strong__ claim.
     ```
 
 Output
 
 :   ```markdown
-    ## Heading with classes {.important .highlight}
+    An *important* point and a **strong** claim.
     ```
 
-Pandoc lets a single hyphen stand in for the `unnumbered` class, which is the
-preferable spelling in non-English documents. Panache keeps that shorthand as
-written rather than expanding it to `.unnumbered`.
+Literal markers may be escaped so they remain text when the document is read
+again.
 
-Input
+### Code
 
-:   ```markdown
-    ### 河邊道路：不規則道路門牌處置 {#hbdl -}
-    ```
-
-Output
-
-:   ```markdown
-    ### 河邊道路：不規則道路門牌處置 {#hbdl -}
-    ```
-
-### Setext Headings
-
-Setext-style headings are converted to ATX style.
-
-Input
-
-:   ```markdown
-    Heading 1
-    =========
-
-    Heading 2
-    ---------
-    ```
-
-Output
-
-:   ```markdown
-    # Heading 1
-
-    ## Heading 2
-    ```
-
-## Emphasis and Strong
-
-### Basic Formatting
-
-Emphasis markers are consistently normalized to asterisks (`*`) for italics and
-double asterisks (`**`) for bold text. Underscores are converted to asterisks.
-Ambiguous cases are resolved by escaping emphasis markers to avoid idempotency
-issues.
-
-Input
-
-:   ```markdown
-    Single asterisks: *italic text*
-
-    Single underscores: _italic text_
-
-    Double asterisks: **bold text**
-
-    Double underscores: __bold text__
-
-    **foo*
-    ```
-
-Output
-
-:   ```markdown
-    Single asterisks: *italic text*
-
-    Single underscores: *italic text*
-
-    Double asterisks: **bold text**
-
-    Double underscores: **bold text**
-
-    \*\*foo\*
-    ```
-
-## Code
-
-### Inline Code
-
-For inline code, Panache preserves the code-span content verbatim---including
-any leading or trailing spaces---and only ensures that the code is enclosed in
-the appropriate number of backticks to avoid conflicts with the content
-(internal line breaks are still converted to spaces). Surrounding spaces are
-kept because they are part of the code and can be meaningful.
+Panache chooses enough backticks to enclose inline code. Code blocks use
+backtick fences, with the language first and any remaining attributes in braces.
+Indented code blocks become fenced blocks.
 
 Input
 
 :   ````markdown
-    Code with spaces: ` code with spaces `
-
-    `` ```r ``
-    ````
-
-Output
-
-:   `````markdown
-    Code with spaces: ` code with spaces `
-
-    ```` ```r ````
-    `````
-
-### Tab Stops
-
-By default, Panache normalizes all tabs to spaces using four-column tab stops.
-The `preserve` mode exempts tabs in literal code spans and code blocks; tabs in
-regular text are always normalized:
-
-```toml
-[format]
-tab-stops = "preserve"
-tab-width = 4
-```
-
-A tab inside a code span expands from the column it occupies in the source line,
-not from the start of the span's content, because Pandoc expands tabs before it
-reads the document. So `` a`x<TAB>y`b `` becomes `` a`x y`b `` --- the tab sits
-at column 3 and reaches the stop at column 4 --- while the same span at the
-start of a line becomes `` `x  y` ``. Expanding from the content instead would
-change how many spaces the span holds, and with it what the document means.
-
-### Fenced Code Blocks
-
-Fenced code blocks are formatted with consistent fencing and attributes. We
-normalize them to the *shortcut* style from Pandoc.
-
-Input
-
-:   ````markdown
-    ```haskell
-    qsort [] = []
-    ```
-
-    ``` {.haskell}
-    qsort [] = []
-    ```
-
-    ```haskell {.numberLines}
-    qsort [] = []
-    ```
-
     ``` {.haskell .numberLines}
     qsort [] = []
     ```
@@ -476,63 +192,18 @@ Input
 Output
 
 :   ````markdown
-    ```haskell
-    qsort [] = []
-    ```
-
-    ```haskell
-    qsort [] = []
-    ```
-
-    ```haskell {.numberLines}
-    qsort [] = []
-    ```
-
     ```haskell {.numberLines}
     qsort [] = []
     ```
     ````
 
-For a bare (unbraced) info string only the first word is the language class, but
-the rest of the info string is preserved verbatim rather than dropped. This
-keeps tool-specific metadata intact---for example Documenter.jl's
-`@example foo`, `jldoctest; setup = :(...)`, or `@repl bar`:
+Tabs become spaces by default. To keep tabs in code, set
+[`tab-stops = "preserve"`](../reference/configuration.qmd#tab-stops).
 
-::: callout-note
-Multi-word bare info strings are only valid code fences under the CommonMark and
-GFM flavors. In the Pandoc flavor (matching `pandoc -t markdown`) a bare info
-string must be a single word; ```` ```@example foo ```` is parsed as an inline
-code span instead, so use a CommonMark-family flavor for documents that rely on
-this syntax.
-:::
+### Lists
 
-### Indented Code Blocks
-
-Indented code blocks are normalized to fenced code blocks for consistency:
-
-Input
-
-:   ```markdown
-        a <- 1
-        b <- a^2
-    ```
-
-Output
-
-:   ````markdown
-    ```
-    a <- 1
-    b <- a^2
-    ```
-    ````
-
-## Lists
-
-### Unordered Lists
-
-Bullet list markers are standardized to `-`. Indentation is normalized to two
-spaces per level. Loose lists are converted to tight lights if they only contain
-plain (non-block/paragraph) items.
+Bullet lists use `-` and two spaces of indentation per level. Panache removes
+blank lines between items when each item contains only a single paragraph.
 
 Input
 
@@ -540,11 +211,10 @@ Input
     * Item 1
       + Nested item
           *  Deeply nested
-
      +  Item 2
     ```
 
-Output:
+Output
 
 :   ```markdown
     - Item 1
@@ -553,233 +223,61 @@ Output:
     - Item 2
     ```
 
-### Ordered Lists
+Ordered and fancy lists keep their numbering style, with continuation text
+aligned to the item text. Task lists use `- [ ]` and `- [x]`, including for
+nested tasks. For parsers that require four-space nesting, enable the
+[`four-space-rule`](../reference/configuration.qmd#lists) extension.
 
-Ordered lists are handled similarly to [unordered lists].
+#### Definition Lists
 
-In CommonMark and GFM, an ordered list can interrupt a paragraph only when it
-starts at `1`. This also applies inside list items: without a blank line, an
-indented `9. b` after paragraph text remains part of that paragraph. A nested
-ordered list after a blank line can start at any number, and later items in an
-existing list can use any number.
-
-In Pandoc-based flavors targeting Pandoc 3.10 or later, a new ordered sublist
-must start at `1` or its equivalent in another numbering style. A marker
-rejected by this rule remains text. After an outdent, that text belongs to the
-enclosing item at the marker's indentation level, including when the preceding
-list uses a different marker style.
-
-### Task Lists
-
-GitHub-style task lists use the standardized `-` marker. Nested items align with
-the parent list item's content column, immediately before its checkbox.
+Definition markers use three spaces after `:`. Definitions with several blocks
+have blank lines between them, and continuation blocks are indented four spaces.
 
 Input
 
 :   ```markdown
-    + [ ] Parent task
-       *   [ ] Nested unchecked task
-       - [x]   Nested checked task
-    - [X] Another parent task
+    Term
+    : Definition
     ```
 
 Output
 
 :   ```markdown
-    - [ ] Parent task
-      - [ ] Nested unchecked task
-      - [x] Nested checked task
-    - [x] Another parent task
+    Term
+    :   Definition
     ```
 
-### Definition Lists
+### Block Quotes
 
-Definition lists are indented with three spaces after the marker, flush the
-marker to the left, and indent following lines to four spaces.
-
-Panache also normalizes compact vs loose definition items by structure, making
-them
-
-- compact when each definition is a single plain paragraph-like block and
-- loose when a definition contains multiple blocks or starts with a
-  non-paragraph block.
-
-Input
-
-:   ```markdown
-    Term 1
-
-    : Definition 1
-
-    Term 2
-    :   Definition 2a
-     : Definition 2b
-
-    Term 3
-    :   - List
-        with lazy continuation
-        - > a
-          > b
-          > c
-    ```
-
-Output
-
-:   ```markdown
-    Term 1
-
-    :   Definition 1
-
-    Term 2
-    :   Definition 2a
-    :   Definition 2b
-
-    Term 3
-
-    :   - List with lazy continuation
-
-        - > a b c
-    ```
-
-### Fancy Lists
-
-Fancy lists are indented to line up with the first character of the list item
-text.
-
-Input
-
-:   ```markdown
-    (i) Parens style
-    (ii) Second item
-    (iii) Third item
-
-    iv. Starting at four
-    v. Five
-    vi. Six
-    vii. Seven
-    viii. Eight
-    ix. Nine
-    x. Ten
-    ```
-
-Output
-
-:   ```markdown
-      (i) Parens style
-     (ii) Second item
-    (iii) Third item
-
-      iv. Starting at four
-       v. Five
-      vi. Six
-     vii. Seven
-    viii. Eight
-      ix. Nine
-       x. Ten
-    ```
-
-### Four-Space Indentation
-
-With the [`four-space-rule`](../reference/configuration.qmd#lists) extension
-enabled, nested lists and continuation paragraphs (blocks that follow a blank
-line) are indented a flat four columns (one tab stop) per nesting level instead
-of lining up with the marker. Markers keep their normal trailing space, and a
-wrapped paragraph's own continuation lines still align with its first-line
-content---only nesting and new blocks move to the tab stop. This produces output
-that strict Markdown parsers like Python-Markdown accept (they treat
-two-space-indented nesting as flat sibling items).
-
-Input
-
-:   ```markdown
-    * a
-        * a1
-    * b
-        * b1
-    ```
-
-Output
-
-:   ```markdown
-    - a
-        - a1
-    - b
-        - b1
-    ```
-
-The four-space nesting is preserved (the default style would collapse it to two
-spaces). Note the extension assumes four-space-indented *input*: under it,
-two-space-indented content is read as a sibling rather than a child---matching
-the strict-Markdown reading---so it normalizes existing four-space documents but
-does not re-nest two-space ones.
-
-## Block Quotes
-
-Block quotes are formatted with consistent `>` markers:
+Each line in a block quote starts with `>`, followed by a space. Paragraphs
+inside the quote follow the chosen wrapping mode.
 
 Input
 
 :   ```markdown
     >This is a block quote. This
     >paragraph has two lines.
-    >
-    > 1. This is a list inside a block quote.
-    > 2. Second item.
-
-    > This is a block quote. This
-    paragraph has two lines.
     ```
 
 Output
 
 :   ```markdown
     > This is a block quote. This paragraph has two lines.
-    >
-    > 1. This is a list inside a block quote.
-    > 2. Second item.
-
-    > This is a block quote. This paragraph has two lines.
     ```
 
-With `wrap = "preserve"`, line breaks within quoted list items are kept, and
-each continuation line receives the quote markers and list indentation once:
+### Tables
 
-```markdown
-> - outer
->   continuation
-```
+Panache formats pipe, grid, simple, and multiline tables. Pipe, simple, and
+multiline tables are indented two spaces by default; set
+[`table-indent = 0`](../reference/configuration.qmd#table-indentation) to keep
+them at the left margin. Grid tables stay at the margin so Pandoc recognizes
+them as tables.
 
-## Tables
+#### Pipe Tables
 
-Panache supports all Pandoc table types and normalizes alignment and spacing
-while preserving content and attributes. Pipe, simple, and multiline table
-blocks are indented by two spaces. Grid tables are left at the margin (column
-0): Pandoc only recognizes a grid table when its `+---+` border starts at column
-0, so an indented border would be parsed as a paragraph instead.
-
-The two-space indent is configurable via `table-indent` under `[format]`, which
-accepts an integer from 0 to 3 (default 2) and applies to pipe, simple, and
-multiline tables alike. Setting `table-indent = 0` keeps them flush at column 0.
-Grid tables always stay flush regardless, since Pandoc does not yet recognize an
-indented grid border. See [Table
-Indentation](../reference/configuration.qmd#table-indentation) for details. The
-examples below show the default indent of 2.
-
-### Pipe Tables
-
-Pipe tables are normalized to have consistent spacing and alignment. The header
-separator row is standardized to use hyphens and colons for alignment, and
-spacing within cells is normalized: whitespace runs inside a cell collapse to a
-single space, including inside emphasis, bold text, and link labels. Code spans,
-raw content, link destinations, and escaped or nonbreaking spaces keep their
-spacing.
-
-In Pandoc-based flavors, wide pipe tables keep the number of dashes and
-alignment colons in each separator segment, because those proportions control
-the rendered column widths. Spaces around the segments are normalized, and rows
-align using cell padding. Enough padding is retained to keep the table above
-Pandoc's default 72-column limit for assigning explicit widths. Panache uses
-compact rows when aligning a narrow table would push it over that limit.
+Cells are padded to show the column alignment in the source. In Pandoc-based
+flavors, Panache preserves separator widths when they control the rendered
+column proportions.
 
 Input
 
@@ -801,167 +299,38 @@ Output
       |     1 | 1    | 1       |   1    |
     ```
 
-The separator row owns the table's column count. Pandoc reads the count from
-that row and pads or truncates every other row to it, so Panache does the same:
-a row short of the count gains empty cells, keeping the separator row's columns
-intact.
+#### Grid Tables
 
-A row carrying *more* cells than the separator row declares is left alone.
-Pandoc discards those cells when rendering, and there is no pipe syntax that
-keeps them without also widening the separator row and changing the rendered
-column count---so the whole table is emitted byte-for-byte as written rather
-than having its content deleted. The
-[`table-column-count`](../reference/linter-rules.qmd#table-column-count) lint
-rule flags the mismatch so it can be resolved deliberately.
-
-### Grid Tables
-
-Grid tables are normalized to have consistent spacing and alignment. They are
-kept at column 0 rather than indented, since Pandoc does not recognize an
-indented grid border. Their column widths are **preserved** rather than shrunk
-to fit the content: Pandoc derives relative column widths from the source border
-widths and propagates them to output formats (e.g. HTML
-`<col style="width:…">`), so resizing a column would change the rendered layout.
-
-Column alignment is encoded by colons in the header separator, or in the opening
-border for a headerless table. Cell text receives trailing padding; leading
-alignment padding could turn prose into an indented code block. Existing cell
-indentation is preserved, including in cells that span rows or columns. Prose
-wrapping keeps inline constructs, such as code spans and math, intact.
+Panache wraps prose within the existing columns. It keeps column widths because
+Pandoc uses them to determine the rendered layout. Lists, code, and other block
+content inside cells keep their structure.
 
 Input
 
 :   ```markdown
-    +--------+----------------+
-    | Var    | Description    |
-    +========+================+
-    | `A`    | Example value. |
-    +--------+----------------+
+    +--------------------+--------+
+    | Description        | Value  |
+    +====================+========+
+    | First              | 12     |
+    | sample.            |        |
+    |                    |        |
+    +--------------------+--------+
     ```
 
 Output
 
 :   ```markdown
-    +--------+----------------+
-    | Var    | Description    |
-    +========+================+
-    | `A`    | Example value. |
-    +--------+----------------+
+    +--------------------+--------+
+    | Description        | Value  |
+    +====================+========+
+    | First sample.      | 12     |
+    +--------------------+--------+
     ```
 
-Plain-prose cell text is **reflowed** to fill the existing column width and any
-blank padding lines inside a cell are dropped, following the global `wrap`
-setting (on under the default `reflow`; `preserve` leaves cell line breaks
-untouched). Column widths are not resized, so reflowing only re-packs a cell's
-text within its column. Cells that carry block content (lists, headings,
-blockquotes, code) or an explicit hard line break (a trailing `\`) are kept
-verbatim so their structure is never collapsed into a paragraph:
+#### Simple Tables
 
-Input
-
-:   ```markdown
-    +--------------------+
-    | Lorem ipsum        |
-    | dolor sit          |
-    |                    |
-    +--------------------+
-    ```
-
-Output
-
-:   ```markdown
-    +--------------------+
-    | Lorem ipsum dolor  |
-    | sit                |
-    +--------------------+
-    ```
-
-#### Column-spanning cells
-
-A grid table cell may span several columns by omitting the interior `|`/`+`
-markers at the boundaries it crosses (a Pandoc colspan). Such cells are
-**preserved**: every spanned column is kept and the spanning cell is re-laid out
-across them, so no content is dropped. As with all grid tables the source border
-widths are preserved (only grown to fit content), and the spanning header keeps
-its span. Punctuation-only cell contents, such as `-`, `:`, and `=`, remain
-content rather than becoming table separators:
-
-Input
-
-:   ```markdown
-    +---------+
-    |a        |
-    +:=:+:===:+
-    | aa|  ab |
-    +---+-----+
-    ```
-
-Output
-
-:   ```markdown
-    +----------+
-    | a        |
-    +:==:+:===:+
-    | aa |  ab |
-    +----+-----+
-    ```
-
-Pipes inside cell content are preserved as text. Only markers on column
-boundaries define cell edges. If the table cannot be placed on a single grid, it
-is left untouched so nothing is lost.
-
-#### Row-spanning cells
-
-A cell may span several rows: a content row carries an interior `+---+`
-separator that closes the neighboring cells while the spanning cell continues
-past it. Row spans and column spans are laid out together in a single pass.
-Column **alignment is taken from the separator colons** (`:---`, `---:`,
-`:--:`), never guessed from the cell contents, and the source border widths are
-preserved:
-
-Input
-
-:   ```markdown
-    +--------+--------+
-    | Name   | Value  |
-    +:======:+=======:+
-    | group  | 1.5    |
-    | spans  +--------+
-    | rows   | 22.0   |
-    +--------+--------+
-    ```
-
-Output
-
-:   ```markdown
-    +--------+--------+
-    | Name   | Value  |
-    +:======:+=======:+
-    | group  | 1.5    |
-    | spans  +--------+
-    | rows   | 22.0   |
-    +--------+--------+
-    ```
-
-### Simple Tables
-
-We normalize simple tables so that cell contents align with the alignment
-specified in the header row, and the column spacing is recomputed from the
-content: each column's dash run is the width of its widest cell plus two, and
-columns are separated by a single space. Whitespace runs inside a cell collapse
-to a single space, including inside inline markup. Literal content and escaped
-or nonbreaking spaces keep their spacing, as in pipe tables. The output is
-therefore independent of the incoming spacing and dash lengths.
-
-Headerless simple tables (delimited by a dash run above and below the data) have
-no header row, so each column's alignment is read from the **first data row's**
-position relative to the dash runs, matching how Pandoc parses them. Their
-closing separator stays attached to the table, even when a paragraph and another
-dashed border follow.
-
-A single continuous dash run also opens a headerless *single-column* table when
-a closing dash run follows before the next blank line (`---`, rows, `---`),
-matching Pandoc. Without the closing run, the dashes are a horizontal rule.
+Columns are sized to fit their contents, with cell text aligned according to the
+header. Table captions move below the table and use the `:` prefix.
 
 Input
 
@@ -987,21 +356,11 @@ Output
       : A caption
     ```
 
-### Multiline Tables
+#### Multiline Tables
 
-Cell wrapping keeps code spans, links, math, and other inline constructs intact.
-Literal whitespace inside those constructs is preserved. A headerless table with
-one row retains a blank line before its closing separator so that it remains a
-multiline table after formatting.
-
-If an unbreakable inline construct or a line retained by `wrap = "preserve"`
-cannot fit within its column, the table is preserved to avoid changing its
-column widths or losing content. Text overflowing the last column does not
-increase the width Pandoc assigns to it. Extending the column separator to fit
-that text would change the rendered layout.
-
-Explicit [table-style conversions](lsp.qmd#code-actions) may choose new column
-widths and wrapping while preserving the table's content and structure.
+Prose wraps within the existing column widths, and extra blank lines between
+rows are removed. Panache keeps the widths because they affect the rendered
+layout. Code spans, links, and math stay intact when cells wrap.
 
 Input
 
@@ -1036,143 +395,20 @@ Output
       -------------------------------------------------------------
     ```
 
-Body cell text is **reflowed** to fit the existing column width and any blank
-padding lines inside a cell are dropped, following the global `wrap` setting:
-under `reflow` (the default) a cell whose lines could pack more tightly is
-re-wrapped within its column, while `preserve` keeps the existing line breaks
-untouched. As with grid tables, the relative column widths themselves are
-**never** changed, since Pandoc derives relative output widths from them. The
-header row is left as-is, because its layout determines each column's alignment.
+### Math
 
-A multiline table column spans from the start of its dashes to the start of the
-next column's dashes (the gap belongs to the left column; the last column runs
-to the end of the line), matching how Pandoc reads the separator. The variable
-runs of spaces a source file may leave between the dash runs are **normalized to
-a single space**, with the dash runs extended to keep every column start fixed.
-The relative widths are unchanged, so the table renders identically while the
-separator becomes regular. Because the column boundary is the next column's
-start (not the end of its own dashes), cell text that extends past a short dash
-run into the gap is **kept** rather than truncated.
-
-Input
-
-:   ```markdown
-    -----  ----            ------
-    Cell   spanning runs   here
-
-    Next   more     text     end
-    -----  ----            ------
-    ```
-
-Output
-
-:   ```markdown
-    ------ --------------- ------
-    Cell   spanning runs   here
-
-    Next   more text       end
-    ------ --------------- ------
-    ```
-
-### Table Captions
-
-Table captions are normalized to be on a separate line **below** the table,
-prefixed with `:`. Wrapped continuation lines use a hanging indent.
-
-Captions also follow the configured wrapping mode (`reflow`, `preserve`, or
-`sentence`). In `reflow` mode, long captions wrap to the configured
-`line-width`. In `sentence` mode, each sentence starts on its own line.
-
-Input
-
-:   ```markdown
-     a   b
-    --- ---
-     1   2
-
-       : A caption with extra spaces
-    ```
-
-Output
-
-:   ```markdown
-       a   b
-      --- ---
-       1   2
-
-      : A caption with extra spaces
-    ```
-
-Output (`wrap = "sentence"`)
-
-:   ```markdown
-       a   b
-      --- ---
-       1   2
-
-      : First caption sentence.
-        Second caption sentence.
-    ```
-
-## Math
-
-### Inline Math
-
-Inline math uses the same canonical spacing and structural rules in `reflow`,
-`preserve`, and `single-line` modes. Use `math = "verbatim"` to leave its
-content untouched.
-
-### Display Math
-
-Display math is formatted on its own lines with leading indentation depending on
-the `math-indent` configuration option (default 2):
-
-Input
-
-:   ```markdown
-    $$E = mc^2$$
-    ```
-
-Output
-
-:   ```markdown
-    $$
-      E = mc^2
-    $$
-    ```
-
-Set `math-indent = 0` to keep the content flush against the left margin. Inside
-lists and blockquotes, `math-indent` adds indentation after the container
-prefix.
-
-### Content-Aware Math Formatting
-
-By default, Panache uses
-[`math = "reflow"`](../reference/configuration.qmd#math) for the *content*
-between math delimiters. It applies structural formatting---including inline
-whitespace collapse, tight sub/superscripts, math-mode group-interior trimming,
-environment-body indentation, `\\` normalization, and `&`-column alignment:
-
-```toml
-[format]
-math = "reflow"
-math-indent = 2
-```
-
-`preserve` keeps authored soft line breaks in free display math while applying
-all other formatting and alignment. `single-line` flattens those soft breaks
-without wrapping to `line-width`. `verbatim` is the only mode that disables
-structural math formatting. Explicit `\\` rows and math environments retain
-their structural lines in every non-verbatim mode.
+Panache adds spaces around operators and keeps subscripts and superscripts
+tight. In display math, it indents environment bodies and aligns `&` columns and
+row endings so the source is easier to follow.
 
 Input
 
 :   ```markdown
     $$
     \begin{aligned}
-    x &= 1 \\
-    y &= 22 \\
-    z &= 333
+    x _1&=a+b\\
+    x _{12}&=2a+b\\
+    y&=a-b
     \end{aligned}
     $$
     ```
@@ -1181,201 +417,43 @@ Output
 
 :   ```markdown
     $$
-    \begin{aligned}
-      x & = 1   \\
-      y & = 22  \\
-      z & = 333
-    \end{aligned}
+      \begin{aligned}
+        x_1    & = a + b  \\
+        x_{12} & = 2a + b \\
+        y      & = a - b
+      \end{aligned}
     $$
     ```
 
-The `&` columns and the trailing `\\` are both aligned. Required environment
-arguments stay on the opening line, so an `array` column specification remains
-attached as `\begin{array}{cc}` instead of becoming its first body row.
+By default, long display equations wrap at relations and operators to fit
+`line-width`. Use `math = "preserve"` to keep your line breaks, or
+`math = "verbatim"` to leave the math content untouched. Malformed math and
+command arguments Panache cannot interpret are left as written. See [Math
+Formatting](../reference/configuration.qmd#math-formatting) for modes, delimiter
+styles, and indentation settings.
 
-Operators are spaced precedence-aware: a binary or relational operator gets one
-space on each side (`a+b` → `a + b`, `a<=b` → `a <= b`), while a unary minus or
-plus stays tight (`x = -y`, `f(-x)`). At the start of an environment row or
-alignment cell, a sign may continue an earlier expression, so Panache preserves
-the space you wrote after it: `+ 2` stays `+ 2`, and `+2` stays `+2`. A postfix
-sign before a closing delimiter also stays tight (`N(t - )` → `N(t-)`). Command
-operators are spaced the same way (`a\cdot b` → `a \cdot b`, `x\leq y` →
-`x \leq y`). A sign beginning an unbraced TeX dimension stays attached to its
-number without erasing the command gap (`\hskip - 1cm` → `\hskip -1cm`). A
-definition `:=` is spaced as one symbol (`x:=y` → `x := y`), never split into
-`x : = y`; a colon that is not followed directly by `=` keeps the spacing you
-wrote (`x:y`, `f: A`). Macro contents are not rewritten (no `\frac`
-canonicalization, no auto-`&` insertion). Alignment uses **source character
-widths** (it tidies the source, it does not align rendered glyphs), and
-malformed math is left untouched. A leading top-level `%` comment stays on its
-own line, and a same-line trailing comment retains its terminating newline.
+### Links
 
-Inline math is kept on a single line: an environment or a `\\` row break inside
-`$…$` is flattened, because a newline there would end the surrounding paragraph
-or split a table row. The one exception is a `%` comment, which runs to end of
-line and so keeps the break that follows it. Display math owns its own lines and
-keeps the structural layout above.
-
-Whitespace that TeX ignores is normalized away: sub/superscript markers (`_`,
-`^`) are tightened (`H _{ 00}^{-1 }` → `H_{00}^{-1}`), and the leading/trailing
-interior whitespace of a math-mode brace group is trimmed (`{ 00 }` → `{00}`).
-Text-mode arguments are exempt, so `\text{ a }` keeps its spaces.
-
-Built-in signatures identify the math and text arguments of commands such as
-`\frac`, `\sqrt`, and `\text`. Project-specific commands can declare the same
-positional information with
-[`format.math-signatures`](../reference/configuration.qmd#math-command-signatures).
-Only an argument proven to contain math is reformatted; text, unknown,
-unmatched, and redefined command arguments retain their authored bytes.
-
-In `reflow` mode, a display equation (`$$…$$`) wider than `line-width` is broken
-at its top-level relations, with each continuation aligned under the first
-relation (the classic stacked-`=` layout for an equality chain). If a relation
-segment is itself too wide, its binary terms break one level deeper, each
-`+ term` sitting flush under the right-hand side they hang under---the
-relation/right-hand-side offset alone supplies the nesting. The `math-indent`
-shifts the whole block to the right but never changes this internal alignment,
-so the equation's shape is the same at any indent. The width budget accounts for
-`math-indent`, so a broken line plus its leading indent stays within
-`line-width`:
+Link text and destinations are preserved. Panache normalizes spacing and quotes
+around titles and attributes.
 
 Input
 
 :   ```markdown
-    $$
-    A = aaaaaaaaaa + bbbbbbbbbb = cccccccccc + dddddddddd
-    $$
+    [Panache](https://panache.bz/  'Project website')
     ```
 
 Output
 
 :   ```markdown
-    $$
-      A = aaaaaaaaaa
-          + bbbbbbbbbb
-        = cccccccccc
-          + dddddddddd
-    $$
+    [Panache](https://panache.bz/ "Project website")
     ```
 
-An **assignment** arrow (`\gets`, `\leftarrow`, `\mapsto`, or `\coloneqq`) is
-treated differently: it *defines* its left-hand side rather than equating it, so
-the equality continuations it introduces anchor under the assignment's
-right-hand side instead of under the arrow. Definition relations such as `:=`
-follow the ordinary relation-chain policy. This keeps a wide arrow from dragging
-the continuations far left:
+### Fenced Divs
 
-```markdown
-$$
-  \beta_0 \gets \beta_0 + \frac{4}{n} \sum_{i = 1}^n (y_i - p_i)
-                = \beta_0 - \frac{1}{L_0} \partial_0 F, \qquad L_0 = 1/4,
-$$
-```
-
-Top-level punctuation, such as commas and semicolons, separates independent
-expressions. When they do not fit together, Panache can break after the
-punctuation and start the next expression at the display indent. A top-level
-`\qquad` also separates expressions. When Panache wraps at that separator, it
-puts `\qquad` on its own source line:
-
-```markdown
-$$
-  \hat{f}_i^{-i} = \sum_{j \neq i} \frac{S_{ij}y_j}{1 - S_{ii}},
-  \qquad
-  \hat{f}_i = \frac{1}{k} \sum_{j \in \mathcal{N}_i} y_j.
-$$
-```
-
-Expressions that fit together keep `\qquad` inline. Relations align within each
-expression. If the first relation itself wraps, later relations align with its
-new column.
-
-The break is source-cosmetic---math ignores whitespace, so the rendered equation
-is unchanged. The layout is fully deterministic: it depends only on the content,
-`line-width`, and `math-indent`, never on where the author placed line breaks. A
-relation chain split across forced `\\` breaks in a bare `$$` is aligned the
-same way, like an implicit `aligned` environment. Relations break before binary
-operators (`+`, `\cdot`), which only break further when their segment still
-overflows; operators inside `(…)`, `\left…\right`, or a `{…}` group (including
-`\frac{…}{…}` arguments) are never broken at. A unary `+`/`-` is never a break
-point. An over-width row with a single relation breaks its binary right-hand
-side; one with no relation at all (a standalone binary chain) breaks with its
-head term first and each following term flush beneath it. Only an equation with
-**no** top-level punctuation, `\qquad`, relation, or binary operator (e.g. a
-single wide `\frac{…}{…}`) is left on one line when it overflows.
-
-#### Preservation Boundary
-
-Panache rewrites math only when the lossless CST proves that the operation is
-safe. It preserves the content in `verbatim` mode; when the body has a lone
-unescaped `$`; braces, scripts, `\left`/`\right`, or environments are malformed;
-or the formatter cannot lower a supported structure without losing comments or
-argument-domain information. In particular, text, unknown, unmatched,
-over-attached, and document-redefined command arguments remain opaque. A comment
-between a command and its first proven argument, multiple environments without a
-punctuation boundary, and mixed free segments that contain comments or authored
-`\\` breaks also remain verbatim.
-
-Preservation applies to the math content, not its Markdown host. Display
-delimiters and their configured outer indentation may still be normalized by the
-ordinary Markdown formatter.
-
-## Inline HTML Spans
-
-Panache preserves line breaks and attribute whitespace in inline `<span>` tags.
-Inside lists and block quotes, continuation lines receive the enclosing
-container's indentation and quote markers once, including within span content.
-
-## Links
-
-For links, Panache preserves the original link text and URL but normalizes the
-spacing around attributes, quotes, and parentheses. Descriptions are wrapped if
-reflow wrapping is enabled.
-
-Text inside unresolved references follows the configured wrapping mode, just
-like other prose. Panache preserves the brackets and reference labels, along
-with inline markup such as emphasis and code spans. When
-`spaced-reference-links` is enabled, it also preserves whitespace between the
-bracket pairs of unresolved references, such as `[text] [missing]`, because that
-whitespace is part of the rendered text.
-
-Input
-
-:   ```markdown
-    [URL and title](/url/ "title").
-
-    [URL and title](/url/  "title preceded by two spaces").
-
-    [URL and title](/url/   "title preceded by a tab").
-
-    [URL and title](/url/ "title with "quotes" in it")
-
-    [URL and title](/url/ 'title with single quotes')
-    ```
-
-Output
-
-:   ```markdown
-    [URL and title](/url/ "title").
-
-    [URL and title](/url/ "title preceded by two spaces").
-
-    [URL and title](/url/ "title preceded by a tab").
-
-    [URL and title](/url/ "title with "quotes" in it")
-
-    [URL and title](/url/ "title with single quotes")
-    ```
-
-## Fenced Divs
-
-Fenced divs are normalized so that blank lines at the boundaries of the div body
-are stripped (no blank line after the opening fence or before the closing fence)
-and runs of blank lines inside the body collapse to a single separator, matching
-pandoc. Attribute blocks have no spaces next to the braces and a single space
-between attributes (`::: {    .callout-note  }` becomes `::: {.callout-note}`).
-Whitespace inside quoted attribute values is preserved. Nested divs use two more
-colons than their parent.
+Panache normalizes attributes and removes blank lines at the edges of the body.
+Nested divs use two more colons than their parent, making their boundaries easy
+to distinguish.
 
 Input
 
@@ -1401,50 +479,12 @@ Output
     :::
     ```
 
-### Fence-shape lines pulled into a paragraph
+### MyST Directives
 
-If a line that looks like a fenced div opener or closer (`::: foo`, `:::`, etc.)
-directly follows non-blank content with no separating blank line, pandoc parses
-it as paragraph text rather than a fence. Reflowing such a paragraph would
-collapse the structural-looking lines into ordinary prose and hide the cause.
-Panache instead preserves the source line breaks for that paragraph so the
-missing blank line stays visible. The
-[`stray-fenced-div-markers`](../reference/linter-rules.qmd#stray-fenced-div-markers)
-lint rule flags the same shape diagnostically.
-
-Input
-
-:   ```markdown
-    []{#hmm}
-    ::: {lang=zh-TW}
-    bla
-    :::
-    ```
-
-Output
-
-:   ```markdown
-    []{#hmm}
-    ::: {lang=zh-TW}
-    bla
-    :::
-    ```
-
-## MyST Directives
-
-Under the MyST flavor, Panache recognizes [MyST
-directives](https://mystmd.org/guide/directives) (```` ```{name} ````,
-`~~~{name}`, or `:::{name}`). The opening fence is kept verbatim, the leading
-`:key: value` option block is emitted canonically (one option per line, a single
-space after the closing colon), and a single blank line separates the options
-from the body.
-
-Directives whose body is literal content---`{code}`, `{code-block}`,
-`{code-cell}`, and `{math}`---are treated as **verbatim**: their body is passed
-through unchanged, so indentation and line breaks are never reflowed. The
-`{toctree}` directive is also verbatim, since its body is a line-oriented list
-of entries (one document reference per line) rather than prose; reflowing it
-would fuse the entries onto a single line and break the table of contents.
+In the MyST flavor, Panache normalizes directive options and separates them from
+the body with a blank line. It formats prose bodies, but preserves literal
+bodies such as code and math. It also preserves `toctree` entries so each stays
+on its own line.
 
 Input
 
@@ -1472,129 +512,84 @@ Output
     ```
     ````
 
-Other directives (`{note}`, `{figure}`, ...) keep markdown bodies, which are
-formatted recursively like ordinary content.
+### Admonitions
 
-## Admonitions
-
-When the
-[`python-markdown-admonitions`](../reference/configuration.qmd#admonitions)
-extension is enabled, Panache recognizes [python-markdown
-admonitions](https://python-markdown.github.io/extensions/admonition/)
-(`!!! type "title"` followed by 4-space-indented content). The companion
-[`pymdownx-details`](../reference/configuration.qmd#admonitions) extension adds
-the collapsible `???` (collapsed) and `???+` (expanded) variants. Both are
-disabled by default for every flavor, since the indented body would otherwise
-parse as an indented code block.
-
-The marker line is kept on a single line (never wrapped or sentence-split), with
-the type, any extra classes, and the optional quoted title normalized to single
-spaces. The body is re-indented by four spaces and reflowed like ordinary
-content; blank lines at the body boundaries are stripped (matching fenced divs).
+Enable
+[`python-markdown-admonitions`](../reference/configuration.qmd#admonitions) to
+format `!!!` admonitions, and `pymdownx-details` for collapsible `???` and
+`???+` blocks. Panache uses four-space body indentation and formats the body
+like ordinary content.
 
 Input
 
 :   ```markdown
     !!! note "Heads up"
 
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla et euismod nulla.
-
-    ???+ tip
-
-        - first
-        - second
+        Read the introduction
+        before running the examples.
     ```
 
 Output
 
 :   ```markdown
     !!! note "Heads up"
-        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla et
-        euismod nulla.
-
-    ???+ tip
-        - first
-        - second
+        Read the introduction before running the examples.
     ```
 
-## Footnotes
+### Footnotes
 
-### Reference Footnotes
+Footnote text follows the wrapping mode. Continuation blocks are indented four
+spaces, as in list items.
 
 Input
 
 :   ```markdown
-    [^longnote]: Here's one with multiple blocks.
+    A claim.[^note]
 
-        Subsequent paragraphs are indented to show that they
-    belong to the previous footnote.
-
-            { some.code }
-
-        The whole paragraph can be indented, or just the first
-        line.  In this way, multi-paragraph footnotes work like
-        multi-paragraph list items.
+    [^note]: Supporting evidence appears
+        in the appendix.
     ```
 
 Output
 
-:   ````markdown
-    [^longnote]: Here's one with multiple blocks.
+:   ```markdown
+    A claim.[^note]
 
-        Subsequent paragraphs are indented to show that they belong to the previous
-        footnote.
+    [^note]: Supporting evidence appears in the appendix.
+    ```
 
-        ```
-        { some.code }
-        ```
+### Horizontal Rules {#horizontal-rulers}
 
-        The whole paragraph can be indented, or just the first line. In this way,
-        multi-paragraph footnotes work like multi-paragraph list items.
-    ````
-
-## Horizontal Rulers
-
-Horizontal rulers are normalized to hyphens and, by default, extend to
-`line-width`.
+Horizontal rules use hyphens and extend to `line-width`, making section breaks
+visible in the source. With `line-width = 40`:
 
 Input
 
 :   ```markdown
-    ---
+    First section.
+
     ***
-    ___
+
+    Second section.
     ```
 
-Output (`line-width = 60`):
+Output
 
 :   ```markdown
-    -----------------------------------------------------------
+    First section.
 
-    -----------------------------------------------------------
+    ----------------------------------------
 
-    -----------------------------------------------------------
+    Second section.
     ```
 
-Set `horizontal-rule-style = "compact"` under `[format]` to emit a three-dash
-`---` instead:
+Set `horizontal-rule-style = "compact"` to use `---` instead. Panache adds blank
+lines around rules to keep them distinct from heading underlines and metadata
+delimiters.
 
-Output (`horizontal-rule-style = "compact"`):
+### Blank Lines
 
-:   ```markdown
-    ---
-
-    ---
-
-    ---
-    ```
-
-Panache always keeps blank lines around horizontal rules, so a compact `---`
-cannot be misread as a YAML metadata delimiter or a setext heading underline
-when the document is parsed again.
-
-## Blank Lines
-
-Multiple blank lines are collapsed to one:
+Multiple blank lines between blocks collapse to one:
 
 Input
 
@@ -1613,14 +608,11 @@ Output
     Paragraph 2
     ```
 
-## Frontmatter
+### Frontmatter
 
-### YAML
-
-YAML frontmatter is parsed and normalized by
-[`pretty_yaml`](https://github.com/g-plane/pretty_yaml). The deterministic style
-rules Panache emits are documented in
-[`STYLE.md`](https://github.com/jolars/panache/blob/main/crates/panache-formatter/src/formatter/yaml/STYLE.md).
+Panache normalizes YAML spacing and indentation. Prose in plain and folded (`>`)
+scalars follows the document's wrapping mode; literal (`|`) scalars keep their
+line breaks.
 
 Input
 
@@ -1647,10 +639,11 @@ Output
     Text
     ```
 
-## Chunk Options
+### Chunk Options
 
-For executable code blocks, Panache convert options specified in the header
-(e.g. ```` ```{r, echo=FALSE} ````) to the hashpipe comment style.
+For Quarto and R Markdown code chunks, Panache converts simple header options to
+`#|` comments and formats them as YAML. Options containing R expressions stay in
+the header.
 
 Input
 
@@ -1668,56 +661,11 @@ Output
     #| label: foobar
     #| echo: false
     #| fig-cap: "A caption"
+
     a <- 1
     b <- 2
     ```
     ````
 
-Complex structures, like the `dependson` option in the example above, are
-preserved as-is without attempting to convert them. Formatting of the options is
-handled by [`pretty_yaml`](https://github.com/g-plane/pretty_yaml)---as in the
-case of YAML frontmatter. Panache converts the reserved R constants `TRUE` and
-`FALSE` to YAML booleans, but leaves `T` and `F` inline because they are
-rebindable R variables. If you want to ensure that your caption is wrapped,
-don't use a quoted scalar value for the caption. Instead use a block scalar, via
-`>-`.
-
-## Ignore Directives
-
-You can selectively disable formatting for specific regions using HTML comment
-directives:
-
-### Ignore Formatting Only
-
-Use `panache-ignore-format-start` and `panache-ignore-format-end` to preserve
-specific formatting:
-
-```markdown
-Normal paragraph will be wrapped and formatted.
-
-<!-- panache-ignore-format-start -->
-This    paragraph   has    custom     spacing
-that  will   be   preserved   exactly.
-<!-- panache-ignore-format-end -->
-
-Back to normal formatting.
-```
-
-This is useful for:
-
-- ASCII art or diagrams
-- Tables with specific spacing
-- Pre-formatted text blocks
-- Code examples that aren't in code blocks
-
-### Ignore Both Formatting and Linting
-
-Use `panache-ignore-start` and `panache-ignore-end` to disable both formatting
-and linting:
-
-```markdown
-<!-- panache-ignore-start -->
-#### Heading with unusual spacing
-Custom    formatting   and   linting   rules   ignored
-<!-- panache-ignore-end -->
-```
+Captions follow the document's wrapping mode. Use a folded scalar (`>-`) for a
+long caption that should wrap across lines.

@@ -722,7 +722,7 @@ insert alignment markers, or expand user definitions. Alignment measures source
 characters rather than rendered glyphs, so `\alpha` counts as six columns.
 Malformed math, a lone unescaped `$`, and structures whose semantics Panache
 cannot establish safely are preserved. See [Math](../guide/formatting.qmd#math)
-for the complete style and preservation boundary.
+for an example of the formatting style.
 
 The option is stable and independent of Markdown flavor and parser extensions.
 The parser always builds the lossless math CST; this option controls only the
