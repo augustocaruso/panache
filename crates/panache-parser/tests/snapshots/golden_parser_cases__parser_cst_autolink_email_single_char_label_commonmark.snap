@@ -1,0 +1,45 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..42
+  PARAGRAPH@0..9
+    AUTO_LINK@0..8
+      AUTO_LINK_MARKER@0..1
+        AUTO_LINK_MARKER@0..1 "<"
+      TEXT@1..7 "a@b.co"
+      AUTO_LINK_MARKER@7..8
+        AUTO_LINK_MARKER@7..8 ">"
+    NEWLINE@8..9 "\n"
+  BLANK_LINE@9..10
+    BLANK_LINE@9..10 "\n"
+  PARAGRAPH@10..20
+    TEXT@10..12 "x "
+    AUTO_LINK@12..17
+      AUTO_LINK_MARKER@12..13
+        AUTO_LINK_MARKER@12..13 "<"
+      TEXT@13..16 "a@b"
+      AUTO_LINK_MARKER@16..17
+        AUTO_LINK_MARKER@16..17 ">"
+    TEXT@17..19 " y"
+    NEWLINE@19..20 "\n"
+  BLANK_LINE@20..21
+    BLANK_LINE@20..21 "\n"
+  PARAGRAPH@21..31
+    AUTO_LINK@21..30
+      AUTO_LINK_MARKER@21..22
+        AUTO_LINK_MARKER@21..22 "<"
+      TEXT@22..29 "ab@c.de"
+      AUTO_LINK_MARKER@29..30
+        AUTO_LINK_MARKER@29..30 ">"
+    NEWLINE@30..31 "\n"
+  BLANK_LINE@31..32
+    BLANK_LINE@31..32 "\n"
+  PARAGRAPH@32..42
+    AUTO_LINK@32..41
+      AUTO_LINK_MARKER@32..33
+        AUTO_LINK_MARKER@32..33 "<"
+      TEXT@33..40 "ab@cd.e"
+      AUTO_LINK_MARKER@40..41
+        AUTO_LINK_MARKER@40..41 ">"
+    NEWLINE@41..42 "\n"

@@ -420,6 +420,7 @@ golden_test_cases!(
     atx_interrupts_paragraph_multimarkdown,
     atx_interrupts_paragraph_no_blank_before_header,
     atx_interrupts_paragraph_pandoc,
+    autolink_email_single_char_label_commonmark,
     autolink_strict_validation_commonmark,
     autolink_strict_validation_pandoc,
     bare_uri_autolink_gfm,

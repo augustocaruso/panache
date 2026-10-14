@@ -529,7 +529,9 @@ fn is_valid_email_label(label: &str) -> bool {
     if !bytes[bytes.len() - 1].is_ascii_alphanumeric() {
         return false;
     }
-    bytes[1..bytes.len() - 1]
+    // A one-character label has no interior (`1..0` is not a valid slice).
+    let interior = bytes.get(1..bytes.len() - 1).unwrap_or_default();
+    interior
         .iter()
         .all(|b| b.is_ascii_alphanumeric() || *b == b'-')
 }
@@ -1498,6 +1500,21 @@ mod tests {
         let input = "<m:abc>";
         assert_eq!(try_parse_autolink(input, true), None);
         assert_eq!(try_parse_autolink(input, false), Some((7, "m:abc")));
+    }
+
+    #[test]
+    fn test_parse_autolink_email_single_char_domain_label() {
+        for (input, email) in [
+            ("<a@b.co>", "a@b.co"),
+            ("<ab@c.de>", "ab@c.de"),
+            ("<ab@cd.e>", "ab@cd.e"),
+            ("<a@b>", "a@b"),
+        ] {
+            let expected = Some((input.len(), email));
+            assert_eq!(try_parse_autolink(input, true), expected, "{input}");
+            assert_eq!(try_parse_autolink(input, false), expected, "{input}");
+        }
+        assert_eq!(try_parse_autolink("<a@->", true), None);
     }
 
     #[test]
