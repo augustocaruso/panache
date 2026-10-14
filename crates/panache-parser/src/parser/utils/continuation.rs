@@ -51,10 +51,18 @@ impl<'a, 'cfg> ContinuationPolicy<'a, 'cfg> {
     ) -> usize {
         let (next_bq_depth, next_inner) = count_blockquote_markers(next_line);
         let (raw_indent_cols, _) = leading_indent(next_inner);
+        // A newly opened quote belongs to a list only if its marker reaches
+        // the item's content column. Its contents cannot continue that list.
+        let next_list_content = if next_bq_depth > current_bq_depth {
+            strip_n_blockquote_markers(next_line, current_bq_depth)
+        } else {
+            next_inner
+        };
+        let (list_indent_cols, _) = leading_indent(next_list_content);
         let next_marker = lists::try_parse_list_marker(
-            next_inner,
+            next_list_content,
             self.config,
-            lists::open_list_hint_at_indent(containers, raw_indent_cols),
+            lists::open_list_hint_at_indent(containers, list_indent_cols),
         );
         let next_is_definition_marker =
             definition_lists::try_parse_definition_marker(next_inner).is_some();
@@ -177,7 +185,7 @@ impl<'a, 'cfg> ContinuationPolicy<'a, 'cfg> {
                         continue;
                     }
 
-                    let effective_indent = raw_indent_cols.saturating_sub(content_indent_so_far);
+                    let effective_indent = list_indent_cols.saturating_sub(content_indent_so_far);
                     let continues_list = if let Some(ref marker_match) = next_marker {
                         let indent_in_range = match marker {
                             lists::ListMarker::Ordered(_) => {
@@ -262,14 +270,7 @@ impl<'a, 'cfg> ContinuationPolicy<'a, 'cfg> {
                         continue;
                     }
 
-                    let effective_indent = if next_bq_depth > current_bq_depth {
-                        let after_current_bq =
-                            strip_n_blockquote_markers(next_line, current_bq_depth);
-                        let (spaces_before_next_marker, _) = leading_indent(after_current_bq);
-                        spaces_before_next_marker.saturating_sub(content_indent_so_far)
-                    } else {
-                        raw_indent_cols.saturating_sub(content_indent_so_far)
-                    };
+                    let effective_indent = list_indent_cols.saturating_sub(content_indent_so_far);
 
                     let is_new_item_at_outer_level = if next_marker.is_some() {
                         effective_indent < *content_col

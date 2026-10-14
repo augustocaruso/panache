@@ -255,6 +255,10 @@ Output
 Each line in a block quote starts with `>`, followed by a space. Paragraphs
 inside the quote follow the chosen wrapping mode.
 
+Panache preserves the blank line between a list and a following block quote. To
+place a quote inside a list item, indent its `>` markers to align with the
+item's text.
+
 Input
 
 :   ```markdown

@@ -65,6 +65,18 @@ fn commonmark_ordered_sublist_paragraph_continuation() {
     );
 }
 
+#[test]
+fn commonmark_blockquote_after_list() {
+    let input = include_str!("fixtures/cases/blockquote_after_list_commonmark/input.md");
+    let tree = parse(input, Some(commonmark_options()));
+    assert_eq!(
+        normalize_html(&html_renderer::render(&tree)),
+        normalize_html(
+            "<ul>\n<li>x</li>\n</ul>\n<blockquote>\n<ul>\n<li>q</li>\n</ul>\n</blockquote>\n"
+        )
+    );
+}
+
 fn read_allowlist(path: &Path) -> BTreeSet<u32> {
     if !path.exists() {
         return BTreeSet::new();

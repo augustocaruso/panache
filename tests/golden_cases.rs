@@ -331,6 +331,7 @@ golden_test_cases!(
     atx_interrupts_paragraph_no_blank_before_header,
     list_gobble_chain_lazy_continuation,
     list_interrupts_paragraph_commonmark,
+    blockquote_after_list_commonmark,
     list_item_ordered_paragraph_continuation_commonmark,
     list_item_blockquote_inner_list_siblings,
     list_item_blockquote_nested_list_issue_292,

@@ -173,6 +173,39 @@ fn loose_list_with_blank_lines() {
 }
 
 #[test]
+fn blockquote_after_blank_line_respects_list_indentation() {
+    for flavor in [Flavor::CommonMark, Flavor::Gfm, Flavor::Pandoc] {
+        let config = ParserOptions {
+            flavor,
+            dialect: Dialect::for_flavor(flavor),
+            extensions: Extensions::for_flavor(flavor),
+            ..Default::default()
+        };
+        for (input, parent_kind) in [
+            ("- x\n\n> - q\n", SyntaxKind::DOCUMENT),
+            ("1. x\n\n> 1. q\n", SyntaxKind::DOCUMENT),
+            ("- x\n\n > - q\n", SyntaxKind::DOCUMENT),
+            ("- x\n\n>   q\n", SyntaxKind::DOCUMENT),
+            ("- x\n\n  > - q\n", SyntaxKind::LIST_ITEM),
+            ("1. x\n\n   > 1. q\n", SyntaxKind::LIST_ITEM),
+            ("> - x\n>\n> > - q\n", SyntaxKind::BLOCK_QUOTE),
+            ("> - x\n>\n>   > - q\n", SyntaxKind::LIST_ITEM),
+        ] {
+            let tree = parse_blocks_with_config(input, &config);
+            assert_eq!(tree.text().to_string(), input);
+            let quote = find_all(&tree, SyntaxKind::BLOCK_QUOTE)
+                .pop()
+                .expect("should find blockquote");
+            assert_eq!(
+                quote.parent().unwrap().kind(),
+                parent_kind,
+                "incorrect quote parent under {flavor:?} for {input:?}"
+            );
+        }
+    }
+}
+
+#[test]
 fn simple_ordered_list() {
     let input = "1. one\n2. two\n3. three\n";
     let tree = parse_blocks(input);
