@@ -1908,6 +1908,7 @@ impl BlockParser for HtmlBlockParser {
             wrapper_kind,
             fusion,
             ctx.config,
+            None,
         );
         new_pos - line_pos
     }

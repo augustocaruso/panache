@@ -11,10 +11,10 @@ impl Formatter {
     /// An HTML block that continues a list item keeps the item's *source*
     /// indentation in its text. When the formatter moves the item's content
     /// column (normalizing `-   ` to `- `, say), `reindent = Some((from, to))`
-    /// swaps the source column `from` for the formatted column `to` on every
-    /// line; otherwise the old, deeper indent can turn the block into an
-    /// indented code block on the next parse. Lines that don't reach `from`,
-    /// and ignored regions, keep the source text.
+    /// swaps the source column `from` for the formatted column `to` on body
+    /// lines. The first line skips this adjustment when it follows the list
+    /// marker, whose indentation has already been emitted. Lines that don't
+    /// reach `from`, and ignored regions, keep the source text.
     pub(super) fn format_html_block_reindented(
         &mut self,
         node: &SyntaxNode,
@@ -31,7 +31,9 @@ impl Formatter {
             if token.kind() == SyntaxKind::LINE_PREFIX {
                 // Raw blocks have no parsed inner containers. Their entire
                 // prefix belongs to the enclosing container, which emits it.
-                if node.kind() == SyntaxKind::HTML_BLOCK_RAW {
+                if node.kind() == SyntaxKind::HTML_BLOCK_RAW
+                    || self.config.dialect() == panache_parser::Dialect::CommonMark
+                {
                     continue;
                 }
                 if token.text().contains('>') {
@@ -46,9 +48,13 @@ impl Formatter {
             after_marker = false;
             text.push_str(token.text());
         }
+        let starts_on_marker_line = node
+            .first_token()
+            .and_then(|token| token.prev_token())
+            .is_some_and(|prev| !prev.text().ends_with('\n'));
         if let Some((from, to)) = reindent
             && !self.directive_tracker.is_formatting_ignored()
-            && let Some(moved) = reindent_lines(&text, from, to)
+            && let Some(moved) = reindent_lines(&text, from, to, starts_on_marker_line)
         {
             text = moved;
         }
@@ -100,11 +106,16 @@ impl Formatter {
 }
 
 /// Swap `from` columns of leading whitespace for `to` spaces on every
-/// non-blank line of `text`. `None` when a non-blank line doesn't reach
-/// `from` or a tab straddles it, so the caller keeps the text as is.
-fn reindent_lines(text: &str, from: usize, to: usize) -> Option<String> {
+/// non-blank line of `text`, keeping any columns left by a partial tab.
+/// `None` when a non-blank line doesn't reach `from`, so the caller keeps
+/// the text as is.
+fn reindent_lines(text: &str, from: usize, to: usize, skip_first_line: bool) -> Option<String> {
     let mut out = String::with_capacity(text.len());
-    for line in text.split_inclusive('\n') {
+    for (i, line) in text.split_inclusive('\n').enumerate() {
+        if i == 0 && skip_first_line {
+            out.push_str(line);
+            continue;
+        }
         let body = line.trim_end_matches(['\n', '\r']);
         let newline = &line[body.len()..];
         if body.trim().is_empty() {
@@ -124,10 +135,10 @@ fn reindent_lines(text: &str, from: usize, to: usize) -> Option<String> {
             }
             bytes += 1;
         }
-        if col != from {
+        if col < from {
             return None;
         }
-        out.push_str(&" ".repeat(to));
+        out.push_str(&" ".repeat(to + col - from));
         out.push_str(&body[bytes..]);
         out.push_str(newline);
     }

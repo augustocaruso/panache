@@ -1538,10 +1538,16 @@ impl Formatter {
                             self.output.push_str(cb);
                             self.output.push(' ');
                         }
-                        let block_text = child.text().to_string();
-                        let trimmed = block_text.trim_end_matches('\n');
-                        self.output.push_str(trimmed);
-                        self.output.push('\n');
+                        if self.config.dialect() == panache_parser::Dialect::CommonMark {
+                            let content_indent = list_indent.hanging_indent(total_indent);
+                            let reindent = (self.container_content_offset(&child), content_indent);
+                            self.format_html_block_reindented(&child, Some(reindent));
+                        } else {
+                            let block_text = child.text().to_string();
+                            let trimmed = block_text.trim_end_matches('\n');
+                            self.output.push_str(trimmed);
+                            self.output.push('\n');
+                        }
                     } else {
                         let content_indent = list_indent.hanging_indent(total_indent);
                         self.format_node_sync(&child, content_indent);

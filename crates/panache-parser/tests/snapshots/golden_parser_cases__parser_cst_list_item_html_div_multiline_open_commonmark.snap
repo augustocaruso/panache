@@ -7,16 +7,14 @@ DOCUMENT@0..33
     LIST_ITEM@0..33
       LIST_MARKER@0..1 "-"
       WHITESPACE@1..2 " "
-      PLAIN@2..24
-        INLINE_HTML@2..16
-          INLINE_HTML_CONTENT@2..7 "<div\n"
-          LINE_PREFIX@7..9 "  "
-          INLINE_HTML_CONTENT@9..16 "id=\"x\">"
-        NEWLINE@16..17 "\n"
-        LINE_PREFIX@17..19 "  "
-        TEXT@19..23 "body"
-        NEWLINE@23..24 "\n"
-      HTML_BLOCK@24..33
-        HTML_BLOCK_TAG@24..33
+      HTML_BLOCK@2..33
+        HTML_BLOCK_TAG@2..7
+          TEXT@2..6 "<div"
+          NEWLINE@6..7 "\n"
+        HTML_BLOCK_CONTENT@7..33
+          TEXT@7..16 "  id=\"x\">"
+          NEWLINE@16..17 "\n"
+          TEXT@17..23 "  body"
+          NEWLINE@23..24 "\n"
           TEXT@24..32 "  </div>"
           NEWLINE@32..33 "\n"

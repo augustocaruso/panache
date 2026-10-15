@@ -30,6 +30,86 @@ fn bullet_list_requires_space_after_marker() {
 }
 
 #[test]
+fn commonmark_html_blocks_start_on_the_list_marker_line() {
+    for flavor in [Flavor::CommonMark, Flavor::Gfm] {
+        let config = ParserOptions {
+            flavor,
+            dialect: Dialect::for_flavor(flavor),
+            extensions: Extensions::for_flavor(flavor),
+            ..Default::default()
+        };
+        for content in [
+            "<script>\n  body\n  </script>\n",
+            "<!-- comment\n  -->\n",
+            "<?pi\n  ?>\n",
+            "<!DOCTYPE\n  html>\n",
+            "<![CDATA[\n  body]]>\n",
+            "<div>\n  body\n  </div>\n",
+            "<custom-tag>\n  body\n  </custom-tag>\n",
+        ] {
+            let input = format!("- {content}- sibling\n");
+            let tree = parse_blocks_with_config(&input, &config);
+            assert_eq!(tree.text().to_string(), input);
+            let items = find_all(&tree, SyntaxKind::LIST_ITEM);
+            assert_eq!(items.len(), 2, "{flavor:?}: {content}");
+            let blocks: Vec<_> = items[0].children().collect();
+            assert_eq!(blocks.len(), 1, "{flavor:?}: {content}");
+            assert_eq!(
+                blocks[0].kind(),
+                SyntaxKind::HTML_BLOCK,
+                "{flavor:?}: {content}"
+            );
+            assert_eq!(blocks[0].text().to_string(), content);
+        }
+    }
+}
+
+#[test]
+fn commonmark_marker_line_html_respects_paragraphs_and_indented_code() {
+    let config = ParserOptions {
+        flavor: Flavor::CommonMark,
+        dialect: Dialect::CommonMark,
+        extensions: Extensions::for_flavor(Flavor::CommonMark),
+        ..Default::default()
+    };
+    for input in [
+        "- [x] <div>\n",
+        "- text <div>\n",
+        "- text\n  <custom-tag>\n",
+        "-     <div>\n",
+    ] {
+        let tree = parse_blocks_with_config(input, &config);
+        assert_eq!(tree.text().to_string(), input);
+        assert!(
+            find_first(&tree, SyntaxKind::HTML_BLOCK).is_none(),
+            "{input}"
+        );
+    }
+
+    for input in ["- <!-- c -->", "- <div>\r\n  body\r\n  </div>\r\n"] {
+        let tree = parse_blocks_with_config(input, &config);
+        assert_eq!(tree.text().to_string(), input);
+        let block = find_first(&tree, SyntaxKind::HTML_BLOCK).expect("marker-line HTML block");
+        assert_eq!(block.text().to_string(), &input[2..]);
+    }
+}
+
+#[test]
+fn commonmark_marker_line_html_respects_raw_html_extension() {
+    let mut config = ParserOptions {
+        flavor: Flavor::CommonMark,
+        dialect: Dialect::CommonMark,
+        extensions: Extensions::for_flavor(Flavor::CommonMark),
+        ..Default::default()
+    };
+    config.extensions.raw_html = false;
+    let input = "- <!-- comment -->\n";
+    let tree = parse_blocks_with_config(input, &config);
+    assert_eq!(tree.text().to_string(), input);
+    assert!(find_first(&tree, SyntaxKind::HTML_BLOCK).is_none());
+}
+
+#[test]
 fn bullet_list_with_different_markers() {
     let input = "* item\n+ item\n- item\n";
     let tree = parse_blocks(input);

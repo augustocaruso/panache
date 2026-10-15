@@ -216,6 +216,46 @@ impl<'a> Parser<'a> {
         Some(new_pos.saturating_sub(self.pos).saturating_sub(1))
     }
 
+    /// A marker starts a fresh block sequence, so all CommonMark HTML block
+    /// starts apply to its content, including type 7. The marker and any
+    /// outer prefixes have already been emitted; continuation lines still
+    /// need the full container prefix to bound the block.
+    pub(super) fn maybe_open_html_block_in_new_list_item(&mut self) -> Option<usize> {
+        if self.config.dialect != crate::options::Dialect::CommonMark
+            || !self.config.extensions.raw_html
+        {
+            return None;
+        }
+        let Some(Container::ListItem { buffer, .. }) = self.containers.last() else {
+            return None;
+        };
+        if buffer.is_task_paragraph() {
+            return None;
+        }
+        let content = buffer.sole_text_segment()?;
+        if leading_indent(content).0 > 3 {
+            return None;
+        }
+        let block_type = html_blocks::try_parse_html_block_start(content, true)?;
+        let content = content.to_string();
+        if let Some(Container::ListItem { buffer, .. }) = self.containers.stack.last_mut() {
+            buffer.clear();
+        }
+        let prefix = ContainerPrefix::from_stack(&self.containers.stack, true, self.config);
+        let new_pos = html_blocks::parse_html_block_with_wrapper(
+            &mut self.builder,
+            &self.lines,
+            self.pos,
+            block_type,
+            &prefix,
+            SyntaxKind::HTML_BLOCK,
+            html_blocks::SoftbreakFusion::None,
+            self.config,
+            Some(&content),
+        );
+        Some(new_pos.saturating_sub(self.pos).saturating_sub(1))
+    }
+
     /// When a new list item's marker line opens a line block (`- | a`), emit
     /// the line block as the item's content instead of buffering the line as
     /// text.
@@ -1118,6 +1158,9 @@ impl<'a> Parser<'a> {
                             self.config,
                         )
                     };
+                    if let Some(extras) = self.maybe_open_html_block_in_new_list_item() {
+                        return extras;
+                    }
                     if let Some(extras) = self.maybe_open_fenced_code_in_new_list_item() {
                         return extras;
                     }
@@ -1150,6 +1193,9 @@ impl<'a> Parser<'a> {
                 indent_to_emit,
                 self.config,
             );
+            if let Some(extras) = self.maybe_open_html_block_in_new_list_item() {
+                return extras;
+            }
             if let Some(extras) = self.maybe_open_fenced_code_in_new_list_item() {
                 return extras;
             }
@@ -1201,6 +1247,9 @@ impl<'a> Parser<'a> {
                     self.config,
                 )
             };
+            if let Some(extras) = self.maybe_open_html_block_in_new_list_item() {
+                return extras;
+            }
             if let Some(extras) = self.maybe_open_fenced_code_in_new_list_item() {
                 return extras;
             }
@@ -1262,6 +1311,9 @@ impl<'a> Parser<'a> {
                 self.config,
             )
         };
+        if let Some(extras) = self.maybe_open_html_block_in_new_list_item() {
+            return extras;
+        }
         if let Some(extras) = self.maybe_open_fenced_code_in_new_list_item() {
             return extras;
         }

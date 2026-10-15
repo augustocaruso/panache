@@ -81,6 +81,10 @@ impl ListItemBuffer {
         self.has_task_checkbox = true;
     }
 
+    pub(crate) fn is_task_paragraph(&self) -> bool {
+        self.has_task_checkbox
+    }
+
     /// Push text content to the buffer, tracking display-math delimiters
     /// per line (the marker-line seed can carry multiple lines).
     pub(crate) fn push_text(&mut self, text: impl Into<String>, config: &ParserOptions) {

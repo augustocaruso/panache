@@ -132,21 +132,38 @@ fn run_golden_case(case_name: &str) {
 
 #[test]
 fn html_block_dedented_paragraph_preserves_commonmark_html() {
+    assert_commonmark_html_preserved(
+        include_str!("fixtures/cases/html_block_dedented_paragraph_commonmark/input.md"),
+        Flavor::CommonMark,
+    );
+}
+
+#[test]
+fn html_block_on_list_marker_line_preserves_commonmark_html() {
+    for flavor in [Flavor::CommonMark, Flavor::Gfm] {
+        assert_commonmark_html_preserved(
+            include_str!("fixtures/cases/html_block_on_list_marker_line_commonmark/input.md"),
+            flavor,
+        );
+    }
+}
+
+fn assert_commonmark_html_preserved(input: &str, flavor: Flavor) {
     let Ok(cmark) = which::which("cmark") else {
         eprintln!("Skipping CommonMark reference check: cmark is not installed");
         return;
     };
-    let input = include_str!("fixtures/cases/html_block_dedented_paragraph_commonmark/input.md");
     let config = Config {
-        flavor: Flavor::CommonMark,
-        extensions: Extensions::for_flavor(Flavor::CommonMark),
-        formatter_extensions: FormatterExtensions::for_flavor(Flavor::CommonMark),
+        flavor,
+        extensions: Extensions::for_flavor(flavor),
+        formatter_extensions: FormatterExtensions::for_flavor(flavor),
         ..Config::default()
     };
     let output = format(input, Some(config), None);
     let render = |source: &str| {
         let html = assert_cmd::Command::new(&cmark)
             .arg("--unsafe")
+            .arg("--nobreaks")
             .write_stdin(source)
             .assert()
             .success()
@@ -365,6 +382,7 @@ golden_test_cases!(
     list_item_lazy_unicode_whitespace_commonmark,
     list_item_blockquote_inner_list_siblings,
     list_item_html_block_reindent_commonmark,
+    html_block_on_list_marker_line_commonmark,
     html_block_dedented_paragraph_commonmark,
     list_item_blockquote_nested_list_issue_292,
     list_item_lazy_blockquote_marker,

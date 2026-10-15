@@ -1445,9 +1445,10 @@ impl<'a> Parser<'a> {
                         &list_item,
                         self.config,
                     );
-                    let extras = if let Some(extras) =
-                        self.maybe_open_fenced_code_in_new_list_item()
+                    let extras = if let Some(extras) = self.maybe_open_html_block_in_new_list_item()
                     {
+                        extras
+                    } else if let Some(extras) = self.maybe_open_fenced_code_in_new_list_item() {
                         extras
                     } else if let Some(extras) = self.maybe_open_caption_table_in_new_list_item() {
                         extras

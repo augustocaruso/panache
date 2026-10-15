@@ -7,10 +7,7 @@ DOCUMENT@0..25
     LIST_ITEM@0..25
       LIST_MARKER@0..1 "-"
       WHITESPACE@1..2 " "
-      PLAIN@2..25
-        INLINE_HTML@2..14
-          INLINE_HTML_CONTENT@2..14 "<div id=\"x\">"
-        TEXT@14..18 "body"
-        INLINE_HTML@18..24
-          INLINE_HTML_CONTENT@18..24 "</div>"
-        NEWLINE@24..25 "\n"
+      HTML_BLOCK@2..25
+        HTML_BLOCK_TAG@2..25
+          TEXT@2..24 "<div id=\"x\">body</div>"
+          NEWLINE@24..25 "\n"

@@ -1,0 +1,215 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..395
+  LIST@0..198
+    LIST_ITEM@0..30
+      LIST_MARKER@0..1 "-"
+      WHITESPACE@1..2 " "
+      HTML_BLOCK@2..30
+        HTML_BLOCK_TAG@2..11
+          TEXT@2..10 "<script>"
+          NEWLINE@10..11 "\n"
+        HTML_BLOCK_CONTENT@11..18
+          TEXT@11..17 "  body"
+          NEWLINE@17..18 "\n"
+        HTML_BLOCK_TAG@18..30
+          TEXT@18..29 "  </script>"
+          NEWLINE@29..30 "\n"
+    LIST_ITEM@30..51
+      LIST_MARKER@30..31 "-"
+      WHITESPACE@31..32 " "
+      HTML_BLOCK@32..51
+        HTML_BLOCK_TAG@32..45
+          TEXT@32..44 "<!-- comment"
+          NEWLINE@44..45 "\n"
+        HTML_BLOCK_TAG@45..51
+          TEXT@45..50 "  -->"
+          NEWLINE@50..51 "\n"
+    LIST_ITEM@51..63
+      LIST_MARKER@51..52 "-"
+      WHITESPACE@52..53 " "
+      HTML_BLOCK@53..63
+        HTML_BLOCK_TAG@53..58
+          TEXT@53..57 "<?pi"
+          NEWLINE@57..58 "\n"
+        HTML_BLOCK_TAG@58..63
+          TEXT@58..62 "  ?>"
+          NEWLINE@62..63 "\n"
+    LIST_ITEM@63..83
+      LIST_MARKER@63..64 "-"
+      WHITESPACE@64..65 " "
+      HTML_BLOCK@65..83
+        HTML_BLOCK_TAG@65..75
+          TEXT@65..74 "<!DOCTYPE"
+          NEWLINE@74..75 "\n"
+        HTML_BLOCK_TAG@75..83
+          TEXT@75..82 "  html>"
+          NEWLINE@82..83 "\n"
+    LIST_ITEM@83..105
+      LIST_MARKER@83..84 "-"
+      WHITESPACE@84..85 " "
+      HTML_BLOCK@85..105
+        HTML_BLOCK_TAG@85..95
+          TEXT@85..94 "<![CDATA["
+          NEWLINE@94..95 "\n"
+        HTML_BLOCK_TAG@95..105
+          TEXT@95..104 "  body]]>"
+          NEWLINE@104..105 "\n"
+    LIST_ITEM@105..129
+      LIST_MARKER@105..106 "-"
+      WHITESPACE@106..107 " "
+      HTML_BLOCK@107..129
+        HTML_BLOCK_TAG@107..113
+          TEXT@107..112 "<div>"
+          NEWLINE@112..113 "\n"
+        HTML_BLOCK_CONTENT@113..129
+          TEXT@113..119 "  body"
+          NEWLINE@119..120 "\n"
+          TEXT@120..128 "  </div>"
+          NEWLINE@128..129 "\n"
+    LIST_ITEM@129..167
+      LIST_MARKER@129..130 "-"
+      WHITESPACE@130..131 " "
+      HTML_BLOCK@131..167
+        HTML_BLOCK_TAG@131..144
+          TEXT@131..143 "<custom-tag>"
+          NEWLINE@143..144 "\n"
+        HTML_BLOCK_CONTENT@144..167
+          TEXT@144..150 "  body"
+          NEWLINE@150..151 "\n"
+          TEXT@151..166 "  </custom-tag>"
+          NEWLINE@166..167 "\n"
+    LIST_ITEM@167..177
+      LIST_MARKER@167..168 "-"
+      WHITESPACE@168..169 " "
+      PLAIN@169..177
+        TEXT@169..176 "sibling"
+        NEWLINE@176..177 "\n"
+    BLANK_LINE@177..178
+      BLANK_LINE@177..178 "\n"
+    LIST_ITEM@178..186
+      LIST_MARKER@178..179 "-"
+      WHITESPACE@179..180 " "
+      HTML_BLOCK@180..186
+        HTML_BLOCK_TAG@180..186
+          TEXT@180..185 "<div>"
+          NEWLINE@185..186 "\n"
+    LIST_ITEM@186..198
+      LIST_MARKER@186..187 "-"
+      WHITESPACE@187..188 " "
+      PLAIN@188..198
+        TEXT@188..197 "following"
+        NEWLINE@197..198 "\n"
+  BLANK_LINE@198..199
+    BLANK_LINE@198..199 "\n"
+  BLOCK_QUOTE@199..252
+    BLOCK_QUOTE_MARKER@199..200 ">"
+    WHITESPACE@200..201 " "
+    LIST@201..252
+      LIST_ITEM@201..239
+        LIST_MARKER@201..203 "1."
+        WHITESPACE@203..204 " "
+        HTML_BLOCK@204..239
+          HTML_BLOCK_TAG@204..210
+            TEXT@204..209 "<div>"
+            NEWLINE@209..210 "\n"
+          HTML_BLOCK_CONTENT@210..239
+            LINE_PREFIX@210..211 ">"
+            LINE_PREFIX@211..212 " "
+            TEXT@212..226 "   quoted body"
+            NEWLINE@226..227 "\n"
+            LINE_PREFIX@227..228 ">"
+            LINE_PREFIX@228..229 " "
+            TEXT@229..238 "   </div>"
+            NEWLINE@238..239 "\n"
+      BLOCK_QUOTE_MARKER@239..240 ">"
+      WHITESPACE@240..241 " "
+      LIST_ITEM@241..252
+        LIST_MARKER@241..243 "2."
+        WHITESPACE@243..244 " "
+        PLAIN@244..252
+          TEXT@244..251 "sibling"
+          NEWLINE@251..252 "\n"
+  BLANK_LINE@252..253
+    BLANK_LINE@252..253 "\n"
+  LIST@253..395
+    LIST_ITEM@253..298
+      LIST_MARKER@253..254 "-"
+      WHITESPACE@254..255 " "
+      PLAIN@255..262
+        TEXT@255..261 "parent"
+        NEWLINE@261..262 "\n"
+      LIST@262..298
+        LIST_ITEM@262..286
+          WHITESPACE@262..264 "  "
+          LIST_MARKER@264..265 "-"
+          WHITESPACE@265..266 " "
+          HTML_BLOCK@266..286
+            HTML_BLOCK_TAG@266..278
+              TEXT@266..277 "<!-- nested"
+              NEWLINE@277..278 "\n"
+            HTML_BLOCK_TAG@278..286
+              TEXT@278..285 "    -->"
+              NEWLINE@285..286 "\n"
+        LIST_ITEM@286..298
+          WHITESPACE@286..288 "  "
+          LIST_MARKER@288..289 "-"
+          WHITESPACE@289..290 " "
+          PLAIN@290..298
+            TEXT@290..297 "sibling"
+            NEWLINE@297..298 "\n"
+    BLANK_LINE@298..299
+      BLANK_LINE@298..299 "\n"
+    LIST_ITEM@299..357
+      LIST_MARKER@299..300 "-"
+      WHITESPACE@300..301 " "
+      BLOCK_QUOTE@301..357
+        BLOCK_QUOTE_MARKER@301..302 ">"
+        WHITESPACE@302..303 " "
+        LIST@303..357
+          LIST_ITEM@303..343
+            LIST_MARKER@303..304 "-"
+            WHITESPACE@304..305 " "
+            HTML_BLOCK@305..343
+              HTML_BLOCK_TAG@305..311
+                TEXT@305..310 "<div>"
+                NEWLINE@310..311 "\n"
+              HTML_BLOCK_CONTENT@311..343
+                LINE_PREFIX@311..312 " "
+                LINE_PREFIX@312..313 " "
+                LINE_PREFIX@313..314 ">"
+                LINE_PREFIX@314..315 " "
+                TEXT@315..329 "  nested quote"
+                NEWLINE@329..330 "\n"
+                LINE_PREFIX@330..331 " "
+                LINE_PREFIX@331..332 " "
+                LINE_PREFIX@332..333 ">"
+                LINE_PREFIX@333..334 " "
+                TEXT@334..342 "  </div>"
+                NEWLINE@342..343 "\n"
+          WHITESPACE@343..345 "  "
+          BLOCK_QUOTE_MARKER@345..346 ">"
+          WHITESPACE@346..347 " "
+          LIST_ITEM@347..357
+            LIST_MARKER@347..348 "-"
+            WHITESPACE@348..349 " "
+            PLAIN@349..357
+              TEXT@349..356 "sibling"
+              NEWLINE@356..357 "\n"
+    BLANK_LINE@357..358
+      BLANK_LINE@357..358 "\n"
+    LIST_ITEM@358..395
+      LIST_MARKER@358..359 "-"
+      WHITESPACE@359..360 " "
+      PLAIN@360..395
+        TEXT@360..364 "text"
+        NEWLINE@364..365 "\n"
+        LINE_PREFIX@365..367 "  "
+        INLINE_HTML@367..379
+          INLINE_HTML_CONTENT@367..379 "<custom-tag>"
+        NEWLINE@379..380 "\n"
+        LINE_PREFIX@380..382 "  "
+        TEXT@382..394 "stays inline"
+        NEWLINE@394..395 "\n"

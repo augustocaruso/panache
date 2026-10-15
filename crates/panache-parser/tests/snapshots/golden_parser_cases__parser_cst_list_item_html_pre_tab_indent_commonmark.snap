@@ -7,14 +7,13 @@ DOCUMENT@0..22
     LIST_ITEM@0..22
       LIST_MARKER@0..1 "-"
       WHITESPACE@1..2 "\t"
-      PLAIN@2..22
-        INLINE_HTML@2..7
-          INLINE_HTML_CONTENT@2..7 "<pre>"
-        NEWLINE@7..8 "\n"
-        LINE_PREFIX@8..9 "\t"
-        TEXT@9..13 "body"
-        NEWLINE@13..14 "\n"
-        LINE_PREFIX@14..15 "\t"
-        INLINE_HTML@15..21
-          INLINE_HTML_CONTENT@15..21 "</pre>"
-        NEWLINE@21..22 "\n"
+      HTML_BLOCK@2..22
+        HTML_BLOCK_TAG@2..8
+          TEXT@2..7 "<pre>"
+          NEWLINE@7..8 "\n"
+        HTML_BLOCK_CONTENT@8..14
+          TEXT@8..13 "\tbody"
+          NEWLINE@13..14 "\n"
+        HTML_BLOCK_TAG@14..22
+          TEXT@14..21 "\t</pre>"
+          NEWLINE@21..22 "\n"

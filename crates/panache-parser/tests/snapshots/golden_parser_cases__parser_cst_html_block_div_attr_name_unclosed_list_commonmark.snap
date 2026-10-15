@@ -7,13 +7,10 @@ DOCUMENT@0..38
     LIST_ITEM@0..38
       LIST_MARKER@0..1 "-"
       WHITESPACE@1..2 " "
-      PLAIN@2..38
-        INLINE_HTML@2..28
-          INLINE_HTML_CONTENT@2..28 "<div bad.name=x id=hi ..."
-        NEWLINE@28..29 "\n"
-        LINE_PREFIX@29..31 "  "
-        STRONG@31..37
-          STRONG_MARKER@31..33 "**"
-          TEXT@33..35 "hi"
-          STRONG_MARKER@35..37 "**"
-        NEWLINE@37..38 "\n"
+      HTML_BLOCK@2..38
+        HTML_BLOCK_TAG@2..29
+          TEXT@2..28 "<div bad.name=x id=hi ..."
+          NEWLINE@28..29 "\n"
+        HTML_BLOCK_CONTENT@29..38
+          TEXT@29..37 "  **hi**"
+          NEWLINE@37..38 "\n"

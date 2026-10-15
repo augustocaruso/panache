@@ -7,14 +7,12 @@ DOCUMENT@0..33
     LIST_ITEM@0..33
       LIST_MARKER@0..1 "-"
       WHITESPACE@1..2 " "
-      PLAIN@2..20
-        INLINE_HTML@2..11
-          INLINE_HTML_CONTENT@2..11 "<section>"
-        NEWLINE@11..12 "\n"
-        LINE_PREFIX@12..14 "  "
-        TEXT@14..19 "hello"
-        NEWLINE@19..20 "\n"
-      HTML_BLOCK@20..33
-        HTML_BLOCK_TAG@20..33
+      HTML_BLOCK@2..33
+        HTML_BLOCK_TAG@2..12
+          TEXT@2..11 "<section>"
+          NEWLINE@11..12 "\n"
+        HTML_BLOCK_CONTENT@12..33
+          TEXT@12..19 "  hello"
+          NEWLINE@19..20 "\n"
           TEXT@20..32 "  </section>"
           NEWLINE@32..33 "\n"

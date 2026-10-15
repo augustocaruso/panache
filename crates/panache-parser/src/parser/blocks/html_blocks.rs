@@ -1187,6 +1187,9 @@ fn try_parse_standalone_block_tags_split(
 /// (`HTML_BLOCK` for opaque preservation, `HTML_BLOCK_DIV` for the
 /// Pandoc-dialect `<div>` lift). Children are emitted byte-for-byte
 /// identical to the source either way; only the wrapper retag changes.
+/// `first_line_content` supplies post-marker content when the caller has
+/// already emitted that line's prefixes. Continuation lines remain raw so
+/// container boundaries still terminate the block.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn parse_html_block_with_wrapper(
     builder: &mut GreenNodeBuilder<'static>,
@@ -1197,6 +1200,7 @@ pub(crate) fn parse_html_block_with_wrapper(
     wrapper_kind: SyntaxKind,
     fusion: SoftbreakFusion,
     config: &ParserOptions,
+    first_line_content: Option<&str>,
 ) -> usize {
     let bq_depth = prefix.bq_depth();
     if config.dialect == crate::options::Dialect::Pandoc
@@ -1261,7 +1265,8 @@ pub(crate) fn parse_html_block_with_wrapper(
     let first_line = lines[start_pos];
     let blank_terminated = ends_at_blank_line(&block_type);
 
-    let first_inner = prefix.strip_line_0_for_emission(first_line);
+    let first_inner =
+        first_line_content.unwrap_or_else(|| prefix.strip_line_0_for_emission(first_line));
 
     let multiline_open_end = match (wrapper_kind, &block_type) {
         (SyntaxKind::HTML_BLOCK_DIV, _) => {
@@ -3736,6 +3741,7 @@ mod tests {
             SyntaxKind::HTML_BLOCK,
             SoftbreakFusion::ToDocEnd,
             &opts,
+            None,
         );
 
         assert_eq!(new_pos, 1);
@@ -3758,6 +3764,7 @@ mod tests {
             SyntaxKind::HTML_BLOCK,
             SoftbreakFusion::ToDocEnd,
             &opts,
+            None,
         );
 
         assert_eq!(new_pos, 3);
@@ -3780,6 +3787,7 @@ mod tests {
             SyntaxKind::HTML_BLOCK,
             SoftbreakFusion::ToDocEnd,
             &opts,
+            None,
         );
 
         // Should consume all lines even without closing tag
@@ -3809,6 +3817,7 @@ mod tests {
             SyntaxKind::HTML_BLOCK_DIV,
             SoftbreakFusion::ToDocEnd,
             &opts,
+            None,
         );
 
         // 9 lines: outer-open, blank, inner-open, blank, content, blank,
@@ -3835,6 +3844,7 @@ mod tests {
             SyntaxKind::HTML_BLOCK_DIV,
             SoftbreakFusion::ToDocEnd,
             &opts,
+            None,
         );
         assert_eq!(new_pos, 1);
     }
@@ -3861,6 +3871,7 @@ mod tests {
             SyntaxKind::HTML_BLOCK,
             SoftbreakFusion::ToDocEnd,
             &opts,
+            None,
         );
         // Three lines, closed at first `</script>` (line 2). new_pos = 3.
         assert_eq!(new_pos, 3);
@@ -3895,6 +3906,7 @@ mod tests {
             SyntaxKind::HTML_BLOCK_DIV,
             SoftbreakFusion::ToDocEnd,
             &opts,
+            None,
         );
 
         // 8 lines: open-line 0, open-line 1 (`  id="x"`), open-line 2
@@ -3940,6 +3952,7 @@ mod tests {
             SyntaxKind::HTML_BLOCK_DIV,
             SoftbreakFusion::ToDocEnd,
             &opts,
+            None,
         );
 
         // 5 lines: open-line 0, open-line 1, open-line 2 (with `>`), foo,
@@ -3979,6 +3992,7 @@ mod tests {
             SyntaxKind::HTML_BLOCK,
             SoftbreakFusion::ToDocEnd,
             &opts,
+            None,
         );
 
         // Block contains <div>\nfoo\n; stops at blank line (line 2).

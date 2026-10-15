@@ -7,8 +7,7 @@ DOCUMENT@0..23
     LIST_ITEM@0..23
       LIST_MARKER@0..1 "-"
       WHITESPACE@1..2 " "
-      PLAIN@2..23
-        INLINE_HTML@2..13
-          INLINE_HTML_CONTENT@2..13 "<!-- hi -->"
-        TEXT@13..22 " trailing"
-        NEWLINE@22..23 "\n"
+      HTML_BLOCK@2..23
+        HTML_BLOCK_TAG@2..23
+          TEXT@2..22 "<!-- hi --> trailing"
+          NEWLINE@22..23 "\n"

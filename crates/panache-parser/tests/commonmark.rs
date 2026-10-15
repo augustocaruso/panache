@@ -66,6 +66,32 @@ fn commonmark_ordered_sublist_paragraph_continuation() {
 }
 
 #[test]
+fn commonmark_html_block_on_list_marker_line() {
+    for (input, html) in [
+        (
+            "- <div>\n  body\n  </div>\n",
+            "<ul>\n<li>\n<div>\nbody\n</div>\n</li>\n</ul>\n",
+        ),
+        (
+            "- <div>\n- foo\n",
+            "<ul>\n<li>\n<div>\n</li>\n<li>foo</li>\n</ul>\n",
+        ),
+        (
+            "> - <div>\n>   body\n>   </div>\n",
+            "<blockquote>\n<ul>\n<li>\n<div>\nbody\n</div>\n</li>\n</ul>\n</blockquote>\n",
+        ),
+    ] {
+        let tree = parse(input, Some(commonmark_options()));
+        assert_eq!(tree.text().to_string(), input);
+        assert_eq!(
+            normalize_html(&html_renderer::render(&tree)),
+            normalize_html(html),
+            "{input}"
+        );
+    }
+}
+
+#[test]
 fn commonmark_blockquote_after_list() {
     let input = include_str!("fixtures/cases/blockquote_after_list_commonmark/input.md");
     let tree = parse(input, Some(commonmark_options()));

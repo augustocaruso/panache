@@ -88,6 +88,7 @@ impl<'a> Parser<'a> {
                 SyntaxKind::HTML_BLOCK,
                 html_blocks::SoftbreakFusion::None,
                 self.config,
+                None,
             );
             probe.finish_node();
             consumed
@@ -121,6 +122,7 @@ impl<'a> Parser<'a> {
                 wrapper_kind,
                 html_blocks::SoftbreakFusion::None,
                 self.config,
+                None,
             );
             return Some(0);
         }
@@ -196,6 +198,7 @@ impl<'a> Parser<'a> {
                 SyntaxKind::HTML_BLOCK,
                 html_blocks::SoftbreakFusion::None,
                 self.config,
+                None,
             );
             probe.finish_node();
             consumed
@@ -310,6 +313,7 @@ impl<'a> Parser<'a> {
                 SyntaxKind::HTML_BLOCK,
                 html_blocks::SoftbreakFusion::None,
                 self.config,
+                None,
             );
             probe.finish_node();
             consumed
@@ -485,6 +489,7 @@ impl<'a> Parser<'a> {
                 SyntaxKind::HTML_BLOCK,
                 html_blocks::SoftbreakFusion::None,
                 self.config,
+                None,
             );
             probe.finish_node();
             consumed == 1
@@ -505,6 +510,7 @@ impl<'a> Parser<'a> {
             wrapper_kind,
             html_blocks::SoftbreakFusion::None,
             self.config,
+            None,
         );
         Some(0)
     }

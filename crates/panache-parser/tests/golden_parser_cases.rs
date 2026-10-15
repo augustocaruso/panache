@@ -711,6 +711,7 @@ golden_test_cases!(
     html_block_dialog_inline_pandoc,
     html_block_in_quoted_list_item_pandoc,
     html_block_ends_with_list_item_commonmark,
+    html_block_on_list_marker_line_commonmark,
     html_block_dedented_paragraph_commonmark,
     html_block_in_nested_list_item_commonmark,
     html_block_div_nested_list_item_pandoc,
