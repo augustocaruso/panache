@@ -221,14 +221,11 @@ def scan(
                         row[f"idempotency_{name}_path"] = artifact.relative_to(
                             results_dir
                         ).as_posix()
-                output = (
-                    log.read_text(errors="replace") + report.read_text(errors="replace")
-                ).lower()
-                types = []
-                if "idempot" in output:
-                    types.append("idempotency")
-                if "lossless" in output:
-                    types.append("losslessness")
+                types = re.findall(
+                    r"^Debug check failed \((idempotency|losslessness)\) in ",
+                    log.read_text(errors="replace"),
+                    re.MULTILINE,
+                )
                 for failure_type in types or ["unknown"]:
                     failures.writerow(row | {"failure_type": failure_type})
                 stream.flush()

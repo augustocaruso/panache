@@ -798,6 +798,7 @@ golden_test_cases!(
     link_text_breaks_sentence,
     link_text_breaks_semantic,
     hugo,
+    hugo_definition_html_comments,
     hugo_definition_shortcode,
     hugo_definition_marker_multiline,
     hugo_definition_continuation_multiline,

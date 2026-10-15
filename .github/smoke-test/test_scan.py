@@ -85,7 +85,23 @@ class ScanTests(unittest.TestCase):
         with self.manifest.open("a") as stream:
             stream.write(f'\n[[repositories]]\nrepo = "{url}"\n')
         rows = self.run_scan(
-            [(1, "idempotency failure"), (1, "losslessness failure"), (0, "passed")]
+            [
+                (
+                    1,
+                    (
+                        "Debug check failed (idempotency) in content/a page.md\n"
+                        "Debug check failed (losslessness) in content/a page.md\n"
+                    ),
+                ),
+                (
+                    1,
+                    (
+                        "### 1. `content/a page.md` (idempotency)\n"
+                        "### 2. `content/a page.md` (losslessness)\n"
+                    ),
+                ),
+                (0, "passed"),
+            ]
         )
         self.assertEqual(self.clones, ["https://github.com/owner/site.git", url])
         self.assertEqual(
@@ -117,6 +133,27 @@ class ScanTests(unittest.TestCase):
             str(self.results / "configs/default.toml"),
         )
         self.assertFalse(any(path.name == ".git" for path in self.results.rglob("*")))
+
+    def test_document_text_does_not_classify_failures(self) -> None:
+        rows = self.run_scan(
+            [
+                (
+                    1,
+                    (
+                        "Debug check failed (idempotency) in content/a page.md\n"
+                        "- Use lossless compression.\n"
+                    ),
+                ),
+                (
+                    1,
+                    (
+                        "### 1. `content/a page.md` (idempotency)\n"
+                        "+ The losslessness and idempotency checks are documented here.\n"
+                    ),
+                ),
+            ]
+        )
+        self.assertEqual([row["failure_type"] for row in rows], ["idempotency"])
 
     def test_invalid_upstream_config_retries_with_repository_fallback(self) -> None:
         rows = self.run_scan([(1, "Error: invalid config panache.toml"), (0, "passed")])

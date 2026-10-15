@@ -1265,8 +1265,10 @@ pub(crate) fn parse_html_block_with_wrapper(
     let first_line = lines[start_pos];
     let blank_terminated = ends_at_blank_line(&block_type);
 
-    let first_inner =
-        first_line_content.unwrap_or_else(|| prefix.strip_line_0_for_emission(first_line));
+    let (first_inner, first_indent) = first_line_content.map_or_else(
+        || prefix.strip_line_0_with_indent_emit(first_line),
+        |content| (content, None),
+    );
 
     let multiline_open_end = match (wrapper_kind, &block_type) {
         (SyntaxKind::HTML_BLOCK_DIV, _) => {
@@ -1509,6 +1511,11 @@ pub(crate) fn parse_html_block_with_wrapper(
             emit_multiline_open_tag_simple(builder, lines, start_pos, end_line_idx, bq_depth);
         }
     } else {
+        // Content-container indentation belongs inside the raw block so that
+        // both CST round-tripping and verbatim formatting preserve it.
+        if let Some(indent) = first_indent {
+            builder.token(SyntaxKind::WHITESPACE.into(), indent);
+        }
         let (line_without_newline, newline_str) = strip_newline(first_inner);
         if !line_without_newline.is_empty() {
             if wrapper_kind == SyntaxKind::HTML_BLOCK_DIV {

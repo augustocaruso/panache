@@ -80,10 +80,11 @@ Use `--manifest` to select a smaller manifest for a local investigation. Its
 fallback configs must live in the adjacent `configs/` directory.
 
 The scanner records regressions in `failures.tsv` and leaves the exit-status
-decision to the workflow's issue job. Git or process-launch errors abort the
-scan. Upstream checkouts stay outside the results directory. The uploaded
-results contain diagnostics, pass dumps, fallback configs, and reproduction
-scripts.
+decision to the workflow's issue job. It classifies failures from Panache's
+diagnostic lines so words in document diffs do not create extra failure records.
+Git or process-launch errors abort the scan. Upstream checkouts stay outside the
+results directory. The uploaded results contain diagnostics, pass dumps,
+fallback configs, and reproduction scripts.
 
 Issue bodies and follow-up comments include the reproduction script for a sample
 file. Run it from the extracted `debug-format-repo-scan-results` artifact

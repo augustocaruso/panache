@@ -244,6 +244,8 @@ indentation per nesting level, enable the
 
 Definition markers use three spaces after `:`. Definitions with several blocks
 have blank lines between them, and continuation blocks are indented four spaces.
+HTML comments in definition bodies retain their indentation when parsed and
+formatted, including in Hugo documents.
 
 Input
 

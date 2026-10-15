@@ -1272,6 +1272,7 @@ golden_test_cases!(
     hugo_task_prose_preserve,
     hugo_leading_definition_shortcode,
     hugo,
+    hugo_definition_html_comments,
     hugo_definition_shortcode,
     hugo_definition_marker_multiline,
     hugo_definition_continuation_multiline,
