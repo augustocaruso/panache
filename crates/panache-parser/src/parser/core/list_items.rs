@@ -1,6 +1,35 @@
 use super::*;
 
 impl<'a> Parser<'a> {
+    pub(super) fn close_non_lazy_list_items(&mut self, line: &str) {
+        if self.config.dialect != crate::options::Dialect::CommonMark
+            || !matches!(
+                self.containers.last(),
+                Some(Container::ListItem { buffer, .. }) if buffer.is_empty()
+            )
+        {
+            return;
+        }
+
+        // Lazy continuation requires an open paragraph. An emitted block,
+        // including HTML, leaves no paragraph for a dedented line to extend.
+        let content = strip_n_blockquote_markers(line, self.current_blockquote_depth());
+        let (content, _) = strip_content_indent(content, self.content_container_indent_to_strip());
+        let indent_cols = leading_indent(content).0;
+        if is_blank_line(content)
+            || try_parse_list_marker(
+                content,
+                self.config,
+                lists::open_list_hint_at_indent(&self.containers, indent_cols),
+            )
+            .is_some()
+        {
+            return;
+        }
+
+        self.close_lists_above_indent(indent_cols);
+    }
+
     /// Close enclosing list items (and their containing list) whose
     /// `content_col` exceeds the given indent. Under CommonMark this covers
     /// every interrupting block (HR, ATX heading, fenced code, ...): per §5.2

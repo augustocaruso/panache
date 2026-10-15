@@ -669,6 +669,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_line(&mut self, line: &'a str) -> LineDispatch {
+        self.close_non_lazy_list_items(line);
         let (mut bq_depth, mut inner_content) = count_blockquote_markers(line);
         let mut bq_marker_line = line;
         let mut shifted_bq_prefix = "";

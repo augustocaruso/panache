@@ -1,0 +1,92 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..130
+  LIST@0..13
+    LIST_ITEM@0..13
+      LIST_MARKER@0..1 "-"
+      WHITESPACE@1..2 " "
+      PLAIN@2..4
+        TEXT@2..3 "a"
+        NEWLINE@3..4 "\n"
+      BLANK_LINE@4..5
+        BLANK_LINE@4..5 "\n"
+      HTML_BLOCK@5..13
+        HTML_BLOCK_TAG@5..13
+          TEXT@5..12 "  <div>"
+          NEWLINE@12..13 "\n"
+  PARAGRAPH@13..21
+    TEXT@13..20 "outside"
+    NEWLINE@20..21 "\n"
+  BLANK_LINE@21..22
+    BLANK_LINE@21..22 "\n"
+  LIST@22..46
+    LIST_ITEM@22..46
+      LIST_MARKER@22..23 "-"
+      WHITESPACE@23..24 " "
+      PLAIN@24..26
+        TEXT@24..25 "b"
+        NEWLINE@25..26 "\n"
+      BLANK_LINE@26..27
+        BLANK_LINE@26..27 "\n"
+      HTML_BLOCK@27..46
+        HTML_BLOCK_TAG@27..46
+          TEXT@27..45 "  <!-- comment -->"
+          NEWLINE@45..46 "\n"
+  PARAGRAPH@46..54
+    TEXT@46..53 "outside"
+    NEWLINE@53..54 "\n"
+  BLANK_LINE@54..55
+    BLANK_LINE@54..55 "\n"
+  BLOCK_QUOTE@55..90
+    BLOCK_QUOTE_MARKER@55..56 ">"
+    WHITESPACE@56..57 " "
+    LIST@57..80
+      LIST_ITEM@57..80
+        LIST_MARKER@57..59 "1."
+        WHITESPACE@59..60 " "
+        PLAIN@60..67
+          TEXT@60..66 "quoted"
+          NEWLINE@66..67 "\n"
+        BLOCK_QUOTE_MARKER@67..68 ">"
+        BLANK_LINE@68..69
+          BLANK_LINE@68..69 "\n"
+        PLAIN@69..71
+          LINE_PREFIX@69..70 ">"
+          LINE_PREFIX@70..71 " "
+        HTML_BLOCK@71..80
+          HTML_BLOCK_TAG@71..80
+            TEXT@71..79 "   <div>"
+            NEWLINE@79..80 "\n"
+    BLOCK_QUOTE_MARKER@80..81 ">"
+    WHITESPACE@81..82 " "
+    PARAGRAPH@82..90
+      TEXT@82..89 "outside"
+      NEWLINE@89..90 "\n"
+  BLANK_LINE@90..91
+    BLANK_LINE@90..91 "\n"
+  LIST@91..130
+    LIST_ITEM@91..130
+      LIST_MARKER@91..92 "-"
+      WHITESPACE@92..93 " "
+      PLAIN@93..99
+        TEXT@93..98 "outer"
+        NEWLINE@98..99 "\n"
+      LIST@99..120
+        LIST_ITEM@99..120
+          WHITESPACE@99..101 "  "
+          LIST_MARKER@101..102 "-"
+          WHITESPACE@102..103 " "
+          PLAIN@103..109
+            TEXT@103..108 "inner"
+            NEWLINE@108..109 "\n"
+          BLANK_LINE@109..110
+            BLANK_LINE@109..110 "\n"
+          HTML_BLOCK@110..120
+            HTML_BLOCK_TAG@110..120
+              TEXT@110..119 "    <div>"
+              NEWLINE@119..120 "\n"
+      PLAIN@120..130
+        TEXT@120..129 "  outside"
+        NEWLINE@129..130 "\n"
