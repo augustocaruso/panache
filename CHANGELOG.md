@@ -1,5 +1,31 @@
 # Changelog
 
+## Unreleased
+
+### Highlights
+
+#### Hugo Support
+
+[Hugo](https://gohugo.io/) is now supported as a flavor, and can be selected with the following configuration line:
+
+```toml
+flavor = "hugo"
+```
+
+Supported features are still minimal, but this will be expanded in future releases. Thanks to @umweltinfo for the suggestion and for testing this out.
+
+#### Linter Preset Configuration
+
+Linter presets are now configurable via a `[linters.<linter-name>]` table in the configuration. For example:
+
+```toml
+[linters]
+r = "arity"
+
+[linters.arity]
+append-args = ["--ignore", "undefined-symbol"]
+```
+
 ## [3.16.0](https://github.com/jolars/panache/compare/v3.15.0...v3.16.0) (2026-10-12)
 
 ### Highlights
