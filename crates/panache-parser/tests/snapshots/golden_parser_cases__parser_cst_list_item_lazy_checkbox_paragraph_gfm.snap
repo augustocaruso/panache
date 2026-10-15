@@ -1,0 +1,37 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..53
+  LIST@0..53
+    LIST_ITEM@0..15
+      LIST_MARKER@0..1 "-"
+      WHITESPACE@1..2 " "
+      TASK_CHECKBOX@2..5 "[x]"
+      PLAIN@5..15
+        TEXT@5..9 " ***"
+        NEWLINE@9..10 "\n"
+        TEXT@10..14 "lazy"
+        NEWLINE@14..15 "\n"
+    BLANK_LINE@15..16
+      BLANK_LINE@15..16 "\n"
+    LIST_ITEM@16..37
+      LIST_MARKER@16..17 "-"
+      WHITESPACE@17..18 " "
+      TASK_CHECKBOX@18..21 "[ ]"
+      PLAIN@21..37
+        TEXT@21..31 " # heading"
+        NEWLINE@31..32 "\n"
+        TEXT@32..36 "lazy"
+        NEWLINE@36..37 "\n"
+    BLANK_LINE@37..38
+      BLANK_LINE@37..38 "\n"
+    LIST_ITEM@38..53
+      LIST_MARKER@38..39 "-"
+      WHITESPACE@39..40 " "
+      TASK_CHECKBOX@40..43 "[X]"
+      PLAIN@43..53
+        TEXT@43..47 " ---"
+        NEWLINE@47..48 "\n"
+        TEXT@48..52 "lazy"
+        NEWLINE@52..53 "\n"

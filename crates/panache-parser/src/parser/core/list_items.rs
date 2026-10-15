@@ -5,14 +5,18 @@ impl<'a> Parser<'a> {
         if self.config.dialect != crate::options::Dialect::CommonMark
             || !matches!(
                 self.containers.last(),
-                Some(Container::ListItem { buffer, .. }) if buffer.is_empty()
+                Some(Container::ListItem { buffer, content_col, .. })
+                    if !buffer.has_open_paragraph(*content_col)
             )
         {
             return;
         }
 
         // Lazy continuation requires an open paragraph. An emitted block,
-        // including HTML, leaves no paragraph for a dedented line to extend.
+        // including HTML, leaves no paragraph for a dedented line to extend,
+        // and neither does buffered text that isn't a paragraph: an item
+        // that is only its marker so far (`*\n]\n -`), or a marker line
+        // that holds a heading (`- # h\nlazy`).
         let content = strip_n_blockquote_markers(line, self.current_blockquote_depth());
         let (content, _) = strip_content_indent(content, self.content_container_indent_to_strip());
         let indent_cols = leading_indent(content).0;

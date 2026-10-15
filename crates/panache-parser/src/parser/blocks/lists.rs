@@ -106,6 +106,12 @@ pub(in crate::parser) struct ListItemEmissionInput<'a> {
     pub virtual_marker_space: bool,
 }
 
+pub(in crate::parser) struct EmittedListItem {
+    content_col: usize,
+    text_to_buffer: String,
+    has_task_checkbox: bool,
+}
+
 /// Parse a Roman numeral (lower or upper case).
 /// Returns the byte-length of the numeral if valid, None otherwise.
 ///
@@ -782,7 +788,7 @@ pub(in crate::parser) fn emit_list_item(
     builder: &mut GreenNodeBuilder<'static>,
     item: &ListItemEmissionInput<'_>,
     config: &ParserOptions,
-) -> (usize, String) {
+) -> EmittedListItem {
     builder.start_node(SyntaxKind::LIST_ITEM.into());
 
     if item.indent_bytes > 0 {
@@ -819,9 +825,11 @@ pub(in crate::parser) fn emit_list_item(
     let content_col =
         list_item_content_col(item.indent_cols, item.marker_len, spaces_after_cols, config);
 
+    let mut has_task_checkbox = false;
     let text_to_buffer = if content_start < item.content.len() {
         let rest = &item.content[content_start..];
         if is_task_checkbox(rest) {
+            has_task_checkbox = true;
             builder.token(SyntaxKind::TASK_CHECKBOX.into(), &rest[..3]);
             rest[3..].to_string()
         } else {
@@ -831,7 +839,11 @@ pub(in crate::parser) fn emit_list_item(
         String::new()
     };
 
-    (content_col, text_to_buffer)
+    EmittedListItem {
+        content_col,
+        text_to_buffer,
+        has_task_checkbox,
+    }
 }
 
 /// Whether the item content starts with a task-list checkbox.
@@ -1684,12 +1696,11 @@ pub(in crate::parser) fn start_nested_list(
         has_blank_between_items: false,
     });
 
-    let (content_col, text_to_buffer) = emit_list_item(builder, item, config);
+    let emitted = emit_list_item(builder, item, config);
     finish_list_item_with_optional_nested(
         containers,
         builder,
-        content_col,
-        text_to_buffer,
+        emitted,
         item.virtual_marker_space,
         config,
     )
@@ -1795,19 +1806,18 @@ pub(in crate::parser) fn add_list_item(
     item: &ListItemEmissionInput<'_>,
     config: &ParserOptions,
 ) -> ListItemFinish {
-    let (content_col, text_to_buffer) = emit_list_item(builder, item, config);
+    let emitted = emit_list_item(builder, item, config);
 
     log::trace!(
         "add_list_item: content={:?}, text_to_buffer={:?}",
         item.content,
-        text_to_buffer
+        emitted.text_to_buffer
     );
 
     finish_list_item_with_optional_nested(
         containers,
         builder,
-        content_col,
-        text_to_buffer,
+        emitted,
         item.virtual_marker_space,
         config,
     )
@@ -1816,16 +1826,21 @@ pub(in crate::parser) fn add_list_item(
 fn finish_list_item_with_optional_nested(
     containers: &mut ContainerStack,
     builder: &mut GreenNodeBuilder<'static>,
-    content_col: usize,
-    text_to_buffer: String,
+    emitted: EmittedListItem,
     virtual_marker_space: bool,
     config: &ParserOptions,
 ) -> ListItemFinish {
+    let EmittedListItem {
+        content_col,
+        text_to_buffer,
+        has_task_checkbox,
+    } = emitted;
     let buffered_is_thematic_break =
         super::horizontal_rules::try_parse_horizontal_rule(trim_end_newlines(&text_to_buffer))
             .is_some();
 
-    if !buffered_is_thematic_break
+    if !has_task_checkbox
+        && !buffered_is_thematic_break
         && let Some(inner_match) =
             try_parse_list_marker(&text_to_buffer, config, OpenListHint::None)
         && !(config.dialect != crate::Dialect::CommonMark
@@ -1859,13 +1874,11 @@ fn finish_list_item_with_optional_nested(
                 indent_bytes: 0,
                 virtual_marker_space: inner_match.virtual_marker_space,
             };
-            let (inner_content_col, inner_text_to_buffer) =
-                emit_list_item(builder, &inner_item, config);
+            let inner_emitted = emit_list_item(builder, &inner_item, config);
             let _ = finish_list_item_with_optional_nested(
                 containers,
                 builder,
-                inner_content_col,
-                inner_text_to_buffer,
+                inner_emitted,
                 inner_match.virtual_marker_space,
                 config,
             );
@@ -1873,7 +1886,7 @@ fn finish_list_item_with_optional_nested(
         }
     }
 
-    if !buffered_is_thematic_break && text_to_buffer.starts_with('>') {
+    if !has_task_checkbox && !buffered_is_thematic_break && text_to_buffer.starts_with('>') {
         containers.push(Container::ListItem {
             content_col,
             buffer: ListItemBuffer::new(),
@@ -1924,13 +1937,11 @@ fn finish_list_item_with_optional_nested(
                     indent_bytes: 0,
                     virtual_marker_space: inner_match.virtual_marker_space,
                 };
-                let (inner_content_col, inner_text_to_buffer) =
-                    emit_list_item(builder, &inner_item, config);
+                let inner_emitted = emit_list_item(builder, &inner_item, config);
                 let _ = finish_list_item_with_optional_nested(
                     containers,
                     builder,
-                    inner_content_col,
-                    inner_text_to_buffer,
+                    inner_emitted,
                     inner_match.virtual_marker_space,
                     config,
                 );
@@ -1953,6 +1964,9 @@ fn finish_list_item_with_optional_nested(
 
     let marker_only = text_to_buffer.trim().is_empty();
     let mut buffer = ListItemBuffer::new();
+    if has_task_checkbox {
+        buffer.mark_task_paragraph();
+    }
     if !text_to_buffer.is_empty() {
         buffer.push_text(text_to_buffer, config);
     }

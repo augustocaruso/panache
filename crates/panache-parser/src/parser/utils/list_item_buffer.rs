@@ -19,7 +19,7 @@ use crate::parser::inlines::code_spans::pending_code_span_openers;
 use crate::parser::utils::container_stack::{
     OpenDisplayMath, gobble_chain_prefix_len as item_indent_prefix_len,
 };
-use crate::parser::utils::helpers::trim_end_newlines;
+use crate::parser::utils::helpers::{is_blank_line, trim_end_newlines};
 use crate::parser::utils::inline_emission;
 use crate::parser::utils::text_buffer::ParagraphBuffer;
 use crate::syntax::{SyntaxKind, SyntaxNode};
@@ -48,6 +48,9 @@ pub(crate) enum ListItemContent {
 pub(crate) struct ListItemBuffer {
     /// Segments of content in order
     segments: Vec<ListItemContent>,
+    /// The already-emitted checkbox starts a paragraph even when the
+    /// remaining text resembles a heading or thematic break.
+    has_task_checkbox: bool,
     /// Display-math region (`$$ ... $$`, `\[ ... \]`, `\\[ ... \\]`) left
     /// open by the buffered lines. Consulted by the parser's list-item hold
     /// so block detection cannot split an open region into a `TEX_BLOCK`
@@ -68,9 +71,14 @@ impl ListItemBuffer {
     pub(crate) fn new() -> Self {
         Self {
             segments: Vec::new(),
+            has_task_checkbox: false,
             open_display_math: None,
             carried_unclosed_html_tag: None,
         }
+    }
+
+    pub(crate) fn mark_task_paragraph(&mut self) {
+        self.has_task_checkbox = true;
     }
 
     /// Push text content to the buffer, tracking display-math delimiters
@@ -316,6 +324,62 @@ impl ListItemBuffer {
         self.combined_unclosed_tag()
     }
 
+    /// Whether the buffered text ends in an open paragraph, which a lazy
+    /// continuation line could extend. False when the buffer holds no
+    /// non-blank text (an item that so far is only its marker), or only a
+    /// single line that emits as an ATX heading or thematic break.
+    /// `content_col` is the item's content column: continuation lines carry
+    /// up to that much item indentation, which isn't part of the block.
+    pub(crate) fn has_open_paragraph(&self, content_col: usize) -> bool {
+        if self.has_task_checkbox {
+            return true;
+        }
+
+        let mut saw_nonblank_line = false;
+        let mut line_opens_paragraph = |line: &str| {
+            if is_blank_line(line) {
+                return false;
+            }
+            if saw_nonblank_line {
+                return true;
+            }
+            saw_nonblank_line = true;
+            let line = trim_end_newlines(line);
+            let item_indent = line
+                .bytes()
+                .take(content_col)
+                .take_while(|&b| b == b' ')
+                .count();
+            let line = &line[item_indent..];
+            try_parse_atx_heading(line).is_none() && try_parse_horizontal_rule(line).is_none()
+        };
+
+        // Most segments contain complete lines. Only join fragments when a
+        // source line crosses segments, and stop once a paragraph is known.
+        let mut partial_line = String::new();
+        for segment in &self.segments {
+            let ListItemContent::Text(text) = segment else {
+                continue;
+            };
+            for fragment in text.split_inclusive('\n') {
+                if partial_line.is_empty() && fragment.ends_with('\n') {
+                    if line_opens_paragraph(fragment) {
+                        return true;
+                    }
+                } else {
+                    partial_line.push_str(fragment);
+                    if fragment.ends_with('\n') {
+                        if line_opens_paragraph(&partial_line) {
+                            return true;
+                        }
+                        partial_line.clear();
+                    }
+                }
+            }
+        }
+        line_opens_paragraph(&partial_line)
+    }
+
     /// Determine if this list item has blank lines between content.
     ///
     /// Used to decide between Plain (tight) and PARAGRAPH (loose).
@@ -418,7 +482,7 @@ impl ListItemBuffer {
 
         let text = self.get_text_for_parsing();
 
-        if !text.is_empty() {
+        if !text.is_empty() && !self.has_task_checkbox {
             let line_without_newline = text
                 .strip_suffix("\r\n")
                 .or_else(|| text.strip_suffix('\n'));
@@ -586,6 +650,7 @@ impl ListItemBuffer {
     pub(crate) fn clear(&mut self) {
         self.carried_unclosed_html_tag = self.combined_unclosed_tag();
         self.segments.clear();
+        self.has_task_checkbox = false;
         self.open_display_math = None;
     }
 }
@@ -963,6 +1028,32 @@ mod tests {
         buffer.clear();
         assert!(buffer.is_empty());
         assert_eq!(buffer.get_text_for_parsing(), "");
+    }
+
+    #[test]
+    fn paragraph_probe_handles_fragmented_lines() {
+        let config = ParserOptions::default();
+        let mut buffer = ListItemBuffer::new();
+        buffer.push_text("\t\n  #", &config);
+        buffer.push_text(" heading\r", &config);
+        assert!(!buffer.has_open_paragraph(2));
+        buffer.push_text("\n", &config);
+        assert!(!buffer.has_open_paragraph(2));
+        buffer.push_blockquote_marker(0, true);
+        buffer.push_text("  continuation", &config);
+        assert!(buffer.has_open_paragraph(2));
+    }
+
+    #[test]
+    fn task_paragraph_context_ends_on_clear() {
+        let config = ParserOptions::default();
+        let mut buffer = ListItemBuffer::new();
+        buffer.mark_task_paragraph();
+        buffer.push_text(" ***\n", &config);
+        assert!(buffer.has_open_paragraph(2));
+        buffer.clear();
+        buffer.push_text("  # heading\n", &config);
+        assert!(!buffer.has_open_paragraph(2));
     }
 
     #[test]

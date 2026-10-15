@@ -1252,6 +1252,7 @@ impl Formatter {
 
         let heading_with_remainder = content_node
             .as_ref()
+            .filter(|_| checkbox.is_none())
             .and_then(|content| self.leading_atx_heading_with_remainder(content));
 
         log::trace!(

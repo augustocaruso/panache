@@ -1,0 +1,107 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..156
+  LIST@0..2
+    LIST_ITEM@0..2
+      LIST_MARKER@0..1 "*"
+      PLAIN@1..2
+        NEWLINE@1..2 "\n"
+  HEADING@2..7
+    HEADING_CONTENT@2..3
+      TEXT@2..3 "]"
+    NEWLINE@3..4 "\n"
+    WHITESPACE@4..5 " "
+    SETEXT_HEADING_UNDERLINE@5..6
+      SETEXT_HEADING_UNDERLINE@5..6 "-"
+    NEWLINE@6..7 "\n"
+  BLANK_LINE@7..8
+    BLANK_LINE@7..8 "\n"
+  LIST@8..25
+    LIST_ITEM@8..25
+      LIST_MARKER@8..9 "-"
+      WHITESPACE@9..10 " "
+      PLAIN@10..12
+        TEXT@10..11 "a"
+        NEWLINE@11..12 "\n"
+      BLANK_LINE@12..13
+        BLANK_LINE@12..13 "\n"
+      HEADING@13..25
+        WHITESPACE@13..15 "  "
+        ATX_HEADING_MARKER@15..16
+          ATX_HEADING_MARKER@15..16 "#"
+        WHITESPACE@16..17 " "
+        HEADING_CONTENT@17..24
+          TEXT@17..24 "heading"
+        NEWLINE@24..25 "\n"
+  PARAGRAPH@25..39
+    TEXT@25..38 "after heading"
+    NEWLINE@38..39 "\n"
+  BLANK_LINE@39..40
+    BLANK_LINE@39..40 "\n"
+  LIST@40..64
+    LIST_ITEM@40..64
+      LIST_MARKER@40..41 "-"
+      WHITESPACE@41..42 " "
+      PLAIN@42..44
+        TEXT@42..43 "b"
+        NEWLINE@43..44 "\n"
+      BLANK_LINE@44..45
+        BLANK_LINE@44..45 "\n"
+      CODE_BLOCK@45..64
+        LINE_PREFIX@45..47 "  "
+        CODE_FENCE_OPEN@47..51
+          CODE_FENCE_MARKER@47..50 "```"
+          NEWLINE@50..51 "\n"
+        CODE_CONTENT@51..58
+          LINE_PREFIX@51..53 "  "
+          TEXT@53..57 "code"
+          NEWLINE@57..58 "\n"
+        LINE_PREFIX@58..60 "  "
+        CODE_FENCE_CLOSE@60..64
+          CODE_FENCE_MARKER@60..63 "```"
+          NEWLINE@63..64 "\n"
+  PARAGRAPH@64..76
+    TEXT@64..75 "after fence"
+    NEWLINE@75..76 "\n"
+  BLANK_LINE@76..77
+    BLANK_LINE@76..77 "\n"
+  LIST@77..156
+    LIST_ITEM@77..123
+      LIST_MARKER@77..78 "-"
+      WHITESPACE@78..79 " "
+      PLAIN@79..81
+        TEXT@79..80 "c"
+        NEWLINE@80..81 "\n"
+      LIST@81..109
+        LIST_ITEM@81..109
+          WHITESPACE@81..83 "  "
+          LIST_MARKER@83..84 "-"
+          WHITESPACE@84..85 " "
+          PLAIN@85..87
+            TEXT@85..86 "d"
+            NEWLINE@86..87 "\n"
+          BLANK_LINE@87..88
+            BLANK_LINE@87..88 "\n"
+          HEADING@88..109
+            WHITESPACE@88..92 "    "
+            ATX_HEADING_MARKER@92..93
+              ATX_HEADING_MARKER@92..93 "#"
+            WHITESPACE@93..94 " "
+            HEADING_CONTENT@94..108
+              TEXT@94..108 "nested heading"
+            NEWLINE@108..109 "\n"
+      PLAIN@109..123
+        TEXT@109..122 "  continues c"
+        NEWLINE@122..123 "\n"
+    BLANK_LINE@123..124
+      BLANK_LINE@123..124 "\n"
+    LIST_ITEM@124..156
+      LIST_MARKER@124..125 "-"
+      WHITESPACE@125..126 " "
+      PLAIN@126..156
+        TEXT@126..127 "e"
+        NEWLINE@127..128 "\n"
+        TEXT@128..155 "lazy paragraph contin ..."
+        NEWLINE@155..156 "\n"
