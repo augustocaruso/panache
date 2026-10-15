@@ -1,0 +1,233 @@
+"""Offline tests for scan configuration, artifacts, and reproduction commands."""
+
+from __future__ import annotations
+
+import csv
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+import scan
+
+
+class ScanTests(unittest.TestCase):
+    def setUp(self) -> None:
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.manifest = self.root / "repositories.toml"
+        self.configs = self.root / "configs"
+        self.configs.mkdir()
+        (self.configs / "default.toml").write_text("# Built-in defaults.\n")
+        (self.configs / "base.toml").write_text('[format]\nwrap = "preserve"\n')
+        (self.configs / "hugo.toml").write_text(
+            'extend = "base.toml"\nflavor = "hugo"\n'
+        )
+        self.manifest.write_text(
+            '[[repositories]]\nrepo = "owner/site"\n'
+            'fallback-config = "configs/hugo.toml"\n'
+        )
+        self.results = self.root / "results"
+        self.repos = self.root / "repos"
+        self.panache = self.root / "panache"
+        self.calls: list[tuple[list[str], dict]] = []
+        self.clones: list[str] = []
+
+    def run_scan(self, outcomes: list[tuple[int, str]]) -> list[dict]:
+        pending = iter(outcomes)
+
+        def run(command: list[str], **kwargs) -> subprocess.CompletedProcess:
+            if command[:2] == ["git", "clone"]:
+                self.clones.append(command[4])
+                Path(command[5]).mkdir()
+                return subprocess.CompletedProcess(command, 0)
+            self.calls.append((command, kwargs))
+            code, output = next(pending)
+            kwargs["stdout"].write(output)
+            if "--dump-dir" in command and "idempotency" in output:
+                passes = Path(command[command.index("--dump-dir") + 1])
+                passes.mkdir(exist_ok=True)
+                name = re.sub(r"[^a-zA-Z0-9._-]", "_", command[-1])
+                for stage in ("input", "once", "twice"):
+                    (passes / f"{name}.idempotency.{stage}.txt").write_text(stage)
+            return subprocess.CompletedProcess(command, code)
+
+        def git(*arguments, cwd=None) -> bytes:
+            if arguments == ("rev-parse", "HEAD"):
+                return b"upstream-sha\n"
+            self.assertEqual(arguments, ("ls-files", "-z", "--", *scan.EXTENSIONS))
+            return b"content/a page.md\0"
+
+        with (
+            patch.object(scan.subprocess, "run", side_effect=run),
+            patch.object(scan, "git", side_effect=git),
+        ):
+            scan.scan(
+                self.manifest,
+                self.panache,
+                self.results,
+                self.repos,
+                "panache-sha",
+                "panache test-version",
+            )
+        self.assertEqual(list(pending), [], "unused mocked Panache results")
+        with (self.results / "failures.tsv").open(newline="") as stream:
+            return list(csv.DictReader(stream, delimiter="\t"))
+
+    def test_scan_preserves_urls_and_archives_fallbacks_and_failures(self) -> None:
+        url = "https://gitlab.example.org/group/subgroup/site.git"
+        with self.manifest.open("a") as stream:
+            stream.write(f'\n[[repositories]]\nrepo = "{url}"\n')
+        rows = self.run_scan(
+            [(1, "idempotency failure"), (1, "losslessness failure"), (0, "passed")]
+        )
+        self.assertEqual(self.clones, ["https://github.com/owner/site.git", url])
+        self.assertEqual(
+            [row["failure_type"] for row in rows], ["idempotency", "losslessness"]
+        )
+        for row in rows:
+            self.assertEqual(row["repo"], "owner/site")
+            self.assertEqual(row["file"], "content/a page.md")
+            self.assertEqual(row["repo_sha"], "upstream-sha")
+            self.assertEqual(row["fallback_config_path"], "configs/hugo.toml")
+            for key in (
+                "idempotency_input_path",
+                "idempotency_once_path",
+                "idempotency_twice_path",
+            ):
+                self.assertTrue((self.results / row[key]).is_file(), key)
+            self.assertTrue((self.results / row["reproduction_path"]).is_file())
+        self.assertEqual(
+            (self.results / "configs/base.toml").read_text(),
+            (self.configs / "base.toml").read_text(),
+        )
+        for command, kwargs in self.calls[:2]:
+            self.assertNotIn("--config", command)
+            self.assertEqual(
+                kwargs["env"]["PANACHE_CONFIG"], str(self.results / "configs/hugo.toml")
+            )
+        self.assertEqual(
+            self.calls[2][1]["env"]["PANACHE_CONFIG"],
+            str(self.results / "configs/default.toml"),
+        )
+        self.assertFalse(any(path.name == ".git" for path in self.results.rglob("*")))
+
+    def test_invalid_upstream_config_retries_with_repository_fallback(self) -> None:
+        rows = self.run_scan([(1, "Error: invalid config panache.toml"), (0, "passed")])
+        self.assertEqual(rows, [])
+        initial, retry = [command for command, _ in self.calls]
+        self.assertNotIn("--config", initial)
+        self.assertEqual(
+            retry[retry.index("--config") + 1], str(self.results / "configs/hugo.toml")
+        )
+
+    def test_persistent_failure_keeps_explicit_config_in_report_and_reproduction(
+        self,
+    ) -> None:
+        rows = self.run_scan(
+            [(1, "invalid config"), (1, "unknown failure"), (1, "unknown failure")]
+        )
+        self.assertEqual([row["failure_type"] for row in rows], ["unknown"])
+        for command, _ in self.calls[1:]:
+            self.assertEqual(
+                command[command.index("--config") + 1],
+                str(self.results / "configs/hugo.toml"),
+            )
+        script = (self.results / rows[0]["reproduction_path"]).read_text()
+        self.assertIn('--config "$scan_results_dir"/configs/hugo.toml', script)
+
+    def test_checkout_inside_artifacts_is_rejected(self) -> None:
+        with self.assertRaisesRegex(ValueError, "outside the results directory"):
+            scan.scan(
+                self.manifest,
+                self.panache,
+                self.results,
+                self.results / "repos",
+                "sha",
+                "version",
+            )
+
+    def test_manifest_rejects_duplicate_repos_and_unknown_settings(self) -> None:
+        for extra, message in [
+            ('\n[[repositories]]\nrepo = "owner/site"\n', "duplicate repository"),
+            ('fallback-confgi = "configs/hugo.toml"\n', "unknown repository settings"),
+        ]:
+            with self.subTest(message=message):
+                self.manifest.write_text(
+                    '[[repositories]]\nrepo = "owner/site"\n' + extra
+                )
+                with self.assertRaisesRegex(ValueError, message):
+                    scan.load_repositories(self.manifest)
+
+    def test_checked_in_manifest_and_configs_load(self) -> None:
+        repositories = scan.load_repositories(
+            Path(__file__).with_name("repositories.toml")
+        )
+        self.assertGreater(len(repositories), 0)
+        hugo = next(
+            repository
+            for repository in repositories
+            if repository.repo == "gohugoio/hugoDocs"
+        )
+        self.assertEqual(hugo.fallback_config, Path("configs/hugo.toml"))
+
+    def test_reproduction_uses_relocated_config_and_quotes_filenames(self) -> None:
+        tools = self.root / "tools"
+        tools.mkdir()
+        trace = self.root / "trace.jsonl"
+        stub = f"""#!{sys.executable}
+import json
+import os
+from pathlib import Path
+import sys
+args = sys.argv[1:]
+with open(os.environ['SMOKE_TRACE'], 'a') as stream:
+    stream.write(json.dumps({{'args': args, 'config': os.environ.get('PANACHE_CONFIG')}}) + '\\n')
+if args[0] == 'clone':
+    Path('site').mkdir()
+"""
+        for name in ("git", "panache"):
+            executable = tools / name
+            executable.write_text(stub)
+            executable.chmod(0o755)
+        for explicit in (False, True):
+            with self.subTest(explicit=explicit):
+                directory = self.root / f"extracted artifact {explicit}"
+                directory.mkdir()
+                config = directory / "configs/hugo.toml"
+                config.parent.mkdir()
+                config.write_text('flavor = "hugo"\n')
+                repository = scan.Repository(
+                    "https://gitlab.example.org/group/subgroup/site.git",
+                    Path("configs/hugo.toml"),
+                )
+                filename = "content/a 'quoted' page.md"
+                subprocess.run(
+                    [
+                        "bash",
+                        "-eu",
+                        "-c",
+                        scan.reproduction(repository, "sha", filename, explicit),
+                    ],
+                    cwd=directory,
+                    env=os.environ
+                    | {
+                        "PATH": str(tools) + os.pathsep + os.environ["PATH"],
+                        "SMOKE_TRACE": str(trace),
+                    },
+                    check=True,
+                )
+                invocation = json.loads(trace.read_text().splitlines()[-1])
+                self.assertEqual(invocation["config"], str(config))
+                self.assertEqual(invocation["args"][-1], filename)
+                self.assertEqual("--config" in invocation["args"], explicit)
+
+
+if __name__ == "__main__":
+    unittest.main()

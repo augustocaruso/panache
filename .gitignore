@@ -53,3 +53,5 @@ pnpm-lock.yaml
 
 # MyST build outputs
 _build
+
+__pycache__/

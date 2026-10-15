@@ -1,0 +1,203 @@
+# Fallback configs apply only when Panache finds no upstream project config.
+# Paths are relative to this manifest. See README.md for precedence and reproduction.
+# Build evidence below was checked against the upstream repositories on 2026-10-15.
+
+[[repositories]]
+# Quarto: _quarto.yml. Upstream config: .panache.toml.
+repo = "aml4td/website"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "andrewheiss/ath-quarto"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml.
+repo = "clauswilke/dataviz"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml.
+repo = "csgillespie/efficientR"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "davidfoxcroft/lsj-book"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: book/_quarto.yml.
+repo = "ddotta/cookbook-rpolars"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "elong0527/r4csr"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml.
+repo = "geocompx/geocompr"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml.
+repo = "hadley/adv-r"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "hadley/ggplot2-book"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml.
+repo = "hadley/mastering-shiny"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "hadley/r-in-production"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "hadley/r-pkgs"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "hadley/r4ds"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# R Markdown/bookdown: book/1e/_output.yml.
+repo = "jeroenjanssens/data-science-at-the-command-line"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# Pandoc: Makefile and the doc/ sources; test/ also contains dialect fixtures.
+repo = "jgm/pandoc"
+fallback-config = "configs/pandoc.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml. Upstream config: panache.toml.
+repo = "jolars/jolars.co"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml.
+repo = "juliasilge/tidy-text-mining"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# Quarto: book/_quarto.yml.
+repo = "kevinheavey/modern-polars"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml. Upstream config: panache.toml.
+repo = "math-ku/compstat"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "mattiasvillani/BayesianLearningBook"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: book/_quarto.yml.
+repo = "mlr-org/mlr3book"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "moderndive/ModernDive_book"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml. Upstream config: panache.toml.
+repo = "nielsrhansen/CSwR"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "nielsrhansen/RwR"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "numbats/arp"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "quarto-dev/quarto-web"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml. Upstream config: chapters/panache.toml.
+repo = "r-causal/causal-inference-in-R"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# Leanpub/knitr: manuscript/Makefile. Keep manuscript defaults; map GitHub docs to GFM.
+repo = "rdpeng/rprogdatascience"
+fallback-config = "configs/github-docs.toml"
+
+[[repositories]]
+# Quarto: _quarto.yml.
+repo = "RohanAlexander/tswd"
+fallback-config = "configs/quarto.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml.
+repo = "rstudio-education/hopr"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# R Markdown/bookdown: docs/_output.yml.
+repo = "rstudio/blogdown"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# R Markdown/bookdown: inst/examples/_output.yml.
+repo = "rstudio/bookdown"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# R Markdown/bookdown: DESCRIPTION.
+repo = "rstudio/rmarkdown"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml.
+repo = "rstudio/rmarkdown-book"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml.
+repo = "rstudio/rmarkdown-cookbook"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml.
+repo = "ThinkR-open/engineering-shiny-book"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# R Markdown/bookdown: _output.yml.
+repo = "wch/rgcookbook"
+fallback-config = "configs/rmarkdown.toml"
+
+[[repositories]]
+# Hugo/Goldmark: config/_default/hugo.toml. Upstream config: panache.toml.
+repo = "https://gitlab.opencode.de/umwelt-info/website.git"
+fallback-config = "configs/hugo.toml"
+
+[[repositories]]
+# Hugo/Goldmark: hugo.toml.
+repo = "gohugoio/hugoDocs"
+fallback-config = "configs/hugo.toml"

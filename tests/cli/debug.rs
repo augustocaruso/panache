@@ -218,6 +218,8 @@ fn test_debug_format_dash_mixed_with_path_errors() {
 
 #[test]
 fn test_smoke_artifact_excludes_upstream_clones() {
-    assert!(SMOKE_TEST_WORKFLOW.contains("REPOS_DIR=\"$RUNNER_TEMP/panache-debug-format-repos\""));
-    assert!(!SMOKE_TEST_WORKFLOW.contains("REPOS_DIR=\"$RESULTS_DIR/repos\""));
+    assert!(
+        SMOKE_TEST_WORKFLOW.contains("--repos-dir \"$RUNNER_TEMP/panache-debug-format-repos\"")
+    );
+    assert!(!SMOKE_TEST_WORKFLOW.contains("--repos-dir \"$RESULTS_DIR/repos\""));
 }

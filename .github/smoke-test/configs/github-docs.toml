@@ -1,0 +1,17 @@
+# GitHub renders these repository documentation files as GFM. Source documents
+# elsewhere keep the repository's default flavor and file-extension inference.
+[flavors]
+gfm = [
+    "**/README.md",
+    "**/readme.md",
+    "**/CONTRIBUTING.md",
+    "**/contributing.md",
+    "**/CODE_OF_CONDUCT.md",
+    "**/CONDUCT.md",
+    "**/NEWS.md",
+    "**/CHANGELOG.md",
+    "**/AGENTS.md",
+    "**/CLAUDE.md",
+    "**/TODO.md",
+    ".github/**/*.md",
+]
