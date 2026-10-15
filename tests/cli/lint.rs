@@ -2376,7 +2376,10 @@ append-args = ["--suffix"]
             cmd.assert().success();
             let invocation = fs::read_to_string(&log).unwrap();
             let lines: Vec<_> = invocation.lines().collect();
-            assert_eq!(lines[0], dir.path().to_str().unwrap());
+            assert_eq!(
+                fs::canonicalize(lines[0]).unwrap(),
+                fs::canonicalize(dir.path()).unwrap()
+            );
             assert_eq!(
                 &lines[1..6],
                 &["--prefix", "lint", "--output", "json", "--suffix"]
