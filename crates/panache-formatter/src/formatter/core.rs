@@ -409,7 +409,7 @@ impl Formatter {
         let indent_str = " ".repeat(indent);
 
         let strip_content_columns = (!is_fenced)
-            .then(|| Self::container_content_offset(node))
+            .then(|| self.container_content_offset(node))
             .filter(|cols| *cols > 0);
         self.format_container_code_block(
             node,
@@ -434,13 +434,13 @@ impl Formatter {
     /// `list_item_content_offset` in the pandoc-native projector
     /// (`panache_parser::to_pandoc_ast`); the two must agree on what a code
     /// block's payload is.
-    pub(super) fn container_content_offset(node: &SyntaxNode) -> usize {
+    pub(super) fn container_content_offset(&self, node: &SyntaxNode) -> usize {
         let Some(parent) = node.parent() else {
             return 0;
         };
         match parent.kind() {
             SyntaxKind::DEFINITION => {
-                Self::marker_content_offset(&parent, SyntaxKind::DEFINITION_MARKER)
+                self.marker_content_offset(&parent, SyntaxKind::DEFINITION_MARKER)
             }
             SyntaxKind::LIST_ITEM => {
                 let parent_ws = match parent.prev_sibling_or_token() {
@@ -449,28 +449,41 @@ impl Formatter {
                     }
                     _ => 0,
                 };
-                parent_ws + Self::marker_content_offset(&parent, SyntaxKind::LIST_MARKER)
+                parent_ws + self.marker_content_offset(&parent, SyntaxKind::LIST_MARKER)
             }
             _ => 0,
         }
     }
 
-    fn marker_content_offset(container: &SyntaxNode, marker: SyntaxKind) -> usize {
+    fn marker_content_offset(&self, container: &SyntaxNode, marker: SyntaxKind) -> usize {
         let mut col = 0usize;
         let mut saw_marker = false;
+        let mut marker_end_col = 0usize;
         for el in container.children_with_tokens() {
             match el {
                 NodeOrToken::Token(t) if t.kind() == marker => {
                     col = Self::advance_col(col, t.text());
+                    marker_end_col = col;
                     saw_marker = true;
                 }
                 NodeOrToken::Token(t) if t.kind() == SyntaxKind::WHITESPACE => {
                     col = Self::advance_col(col, t.text());
-                    if saw_marker {
-                        return col;
-                    }
                 }
-                _ if saw_marker => return col,
+                el if saw_marker => {
+                    let first_token = match el {
+                        NodeOrToken::Token(t) => Some(t),
+                        NodeOrToken::Node(n) => n.first_token(),
+                    };
+                    // Empty CommonMark markers have one logical space of
+                    // padding even when their source padding differs.
+                    if marker == SyntaxKind::LIST_MARKER
+                        && self.config.dialect() == panache_parser::Dialect::CommonMark
+                        && first_token.is_some_and(|t| t.kind() == SyntaxKind::NEWLINE)
+                    {
+                        return marker_end_col + 1;
+                    }
+                    return col;
+                }
                 _ => {}
             }
         }
@@ -810,7 +823,7 @@ impl Formatter {
                         .and_then(|token| token.prev_token())
                         .is_some_and(|prev| prev.text().ends_with('\n'));
                 let reindent = continues_list_item
-                    .then(|| (Self::container_content_offset(node), indent))
+                    .then(|| (self.container_content_offset(node), indent))
                     .filter(|(from, to)| from != to);
                 self.format_html_block_reindented(node, reindent)
             }

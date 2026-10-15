@@ -143,6 +143,13 @@ impl ContainerStack {
     }
 
     pub(crate) fn push(&mut self, c: Container) {
+        // A container opened inside a list item (a blockquote, a nested
+        // list, ...) is that item's content, so an item that began with a
+        // blank line is no longer empty (see
+        // `Parser::note_block_in_list_item` for leaf blocks).
+        if let Some(Container::ListItem { marker_only, .. }) = self.stack.last_mut() {
+            *marker_only = false;
+        }
         self.stack.push(c);
     }
 

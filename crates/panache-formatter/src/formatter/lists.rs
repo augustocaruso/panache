@@ -197,7 +197,7 @@ impl Formatter {
                                 "",
                                 def_indent,
                                 true,
-                                Some(Self::container_content_offset(n)),
+                                Some(self.container_content_offset(n)),
                                 false,
                             );
                         } else {

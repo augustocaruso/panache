@@ -806,13 +806,18 @@ pub(in crate::parser) fn emit_list_item(
         }
     }
 
-    let content_col = list_item_content_col(
-        item.indent_cols,
-        item.marker_len,
-        item.spaces_after_cols,
-        config,
-    );
     let content_start = item.indent_bytes + item.marker_len + item.spaces_after_bytes;
+    // CommonMark gives an empty marker one logical space of padding,
+    // regardless of the whitespace actually present on its line.
+    let spaces_after_cols = if config.dialect == crate::Dialect::CommonMark
+        && item.content[content_start..].trim().is_empty()
+    {
+        1
+    } else {
+        item.spaces_after_cols
+    };
+    let content_col =
+        list_item_content_col(item.indent_cols, item.marker_len, spaces_after_cols, config);
 
     let text_to_buffer = if content_start < item.content.len() {
         let rest = &item.content[content_start..];

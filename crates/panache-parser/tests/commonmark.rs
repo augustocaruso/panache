@@ -77,6 +77,76 @@ fn commonmark_blockquote_after_list() {
     );
 }
 
+#[test]
+fn commonmark_empty_list_marker_block_then_indented_code() {
+    let input = include_str!(
+        "fixtures/cases/empty_list_marker_block_then_indented_code_commonmark/input.md"
+    );
+    let tree = parse(input, Some(commonmark_options()));
+    assert_eq!(
+        normalize_html(&html_renderer::render(&tree)),
+        normalize_html("<ul>\n<li>\n<h1>h</h1>\n<pre><code>code\n</code></pre>\n</li>\n</ul>\n")
+    );
+
+    for (block, html) in [
+        ("```\n  ```", "<pre><code></code></pre>\n"),
+        ("---", "<hr />\n"),
+    ] {
+        let input = format!("-\n  {block}\n      code\n");
+        let tree = parse(&input, Some(commonmark_options()));
+        assert_eq!(tree.text().to_string(), input);
+        assert_eq!(
+            normalize_html(&html_renderer::render(&tree)),
+            normalize_html(&format!(
+                "<ul>\n<li>\n{html}<pre><code>code\n</code></pre>\n</li>\n</ul>\n"
+            )),
+            "indented code after {block}"
+        );
+    }
+}
+
+#[test]
+fn commonmark_empty_list_marker_block_then_dedent() {
+    let input =
+        include_str!("fixtures/cases/empty_list_marker_block_then_dedent_commonmark/input.md");
+    let tree = parse(input, Some(commonmark_options()));
+    assert_eq!(
+        normalize_html(&html_renderer::render(&tree)),
+        normalize_html("<ul>\n<li>\n<h1>h</h1>\n</li>\n</ul>\n<p>after</p>\n")
+    );
+
+    for (input, expected) in [
+        (
+            "-   \n  # h\n\n after\n",
+            "<ul>\n<li>\n<h1>h</h1>\n</li>\n</ul>\n<p>after</p>\n",
+        ),
+        (
+            "1.\n   # h\n\n  after\n",
+            "<ol>\n<li>\n<h1>h</h1>\n</li>\n</ol>\n<p>after</p>\n",
+        ),
+    ] {
+        let tree = parse(input, Some(commonmark_options()));
+        assert_eq!(tree.text().to_string(), input);
+        assert_eq!(
+            normalize_html(&html_renderer::render(&tree)),
+            normalize_html(expected)
+        );
+    }
+}
+
+#[test]
+fn commonmark_empty_list_marker_empty_blockquote() {
+    let input =
+        include_str!("fixtures/cases/empty_list_marker_empty_blockquote_commonmark/input.md");
+    let tree = parse(input, Some(commonmark_options()));
+    assert_eq!(
+        normalize_html(&html_renderer::render(&tree)),
+        normalize_html(
+            "<blockquote>\n<ul>\n<li>\n<blockquote>\n</blockquote>\n<p>after</p>\n</li>\n</ul>\n</blockquote>\n"
+        )
+    );
+}
+
 fn read_allowlist(path: &Path) -> BTreeSet<u32> {
     if !path.exists() {
         return BTreeSet::new();

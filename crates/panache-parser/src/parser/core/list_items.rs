@@ -83,6 +83,23 @@ impl<'a> Parser<'a> {
             && buffer.is_open_grid_table(*content_col)
     }
 
+    /// Record that a block is about to be parsed into the innermost list
+    /// item, so an item that began with a blank line (marker alone on its
+    /// line) is no longer empty.
+    ///
+    /// `marker_only` was otherwise cleared only when text entered the item's
+    /// buffer, so an item whose first block was dispatched (an HTML block,
+    /// heading, fenced code, ...) still counted as empty, and the CommonMark
+    /// rule that an empty item ends at a blank line (§5.2) closed it there:
+    /// `-\n  # h\n\n  second\n- y` split into a list, a top-level paragraph,
+    /// and a second list. Containers opened in the item are covered by
+    /// `ContainerStack::push`.
+    pub(super) fn note_block_in_list_item(&mut self) {
+        if let Some(Container::ListItem { marker_only, .. }) = self.containers.stack.last_mut() {
+            *marker_only = false;
+        }
+    }
+
     pub(super) fn emit_list_item_buffer_if_needed(&mut self) {
         if let Some(Container::ListItem { buffer, .. }) = self.containers.stack.last_mut()
             && !buffer.is_empty()

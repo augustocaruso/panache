@@ -3032,7 +3032,11 @@ impl BlockParser for IndentedCodeBlockParser {
         let allow = if allow_marker_only {
             true
         } else if ctx.config.dialect == crate::options::Dialect::CommonMark {
-            ctx.has_blank_before || ctx.at_document_start
+            // A completed block can be followed by indented code without a
+            // blank line, but buffered paragraph text cannot be interrupted.
+            ctx.has_blank_before
+                || ctx.at_document_start
+                || (!ctx.paragraph_open && !ctx.list_item_content_open)
         } else {
             ctx.has_blank_before_strict
                 || (!ctx.paragraph_open
