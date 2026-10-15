@@ -747,6 +747,14 @@ External linters
     Markdown, and unsafe fixes remain excluded from the aggregate fix-all
     action.
 
+    Linters run from the document's directory, except for ESLint and Clippy, which
+    use isolated temporary directories. Linters such as Arity, Fatou, Badness, and
+    Ruff discover project configuration and reload it on the next open or save. When
+    several Quarto documents are open, Panache refreshes their shared execution
+    results once per lint pass, then updates all affected diagnostics together.
+    Configure command and argument overrides with `[linters.<preset>]` in
+    `panache.toml`.
+
     In Quarto documents, displayed fences and chunks with literal `eval: false`
     options are linted independently. Their definitions do not supply bindings to
     executable chunks or inline expressions, and they retain diagnostics and quick

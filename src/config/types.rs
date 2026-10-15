@@ -68,6 +68,39 @@ pub struct FormatterDefinition {
     pub code_style_args: Option<BTreeMap<String, Vec<String>>>,
 }
 
+pub(crate) const LINTER_PRESET_NAMES: &[&str] = &[
+    "arity",
+    "badness",
+    "clippy",
+    "eslint",
+    "fatou",
+    "jarl",
+    "ruff",
+    "shellcheck",
+    "staticcheck",
+];
+
+/// Overrides for a built-in external linter preset.
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema, PartialEq, Eq, Default)]
+#[serde(default, deny_unknown_fields, rename_all = "kebab-case")]
+pub struct LinterDefinition {
+    /// Executable to use instead of the preset command.
+    pub cmd: Option<String>,
+    /// Complete argument list to use instead of the preset arguments.
+    pub args: Option<Vec<String>>,
+    /// Arguments inserted before the base arguments.
+    pub prepend_args: Vec<String>,
+    /// Arguments inserted after the base arguments.
+    pub append_args: Vec<String>,
+}
+
+#[derive(Debug, Clone, Deserialize, JsonSchema)]
+#[serde(untagged)]
+enum LinterEntry {
+    Mapping(String),
+    Definition(LinterDefinition),
+}
+
 /// Internal struct for deserializing FormatterConfig with preset support.
 #[derive(Debug, Deserialize)]
 #[serde(default)]
@@ -645,7 +678,7 @@ struct RawConfig {
     external_max_parallel: Option<usize>,
 
     #[serde(default)]
-    linters: HashMap<String, String>,
+    linters: HashMap<String, LinterEntry>,
     #[serde(default)]
     lint: Option<LintConfig>,
     #[serde(default)]
@@ -803,6 +836,23 @@ fn resolve_language_formatters(
 impl RawConfig {
     /// Finalize into Config, applying flavor-based defaults where needed
     fn finalize(self) -> Result<Config, String> {
+        let mut linters = HashMap::new();
+        let mut linter_definitions = HashMap::new();
+        for (name, entry) in self.linters {
+            match entry {
+                LinterEntry::Mapping(preset) => {
+                    linters.insert(name, preset);
+                }
+                LinterEntry::Definition(definition) => {
+                    if !LINTER_PRESET_NAMES.contains(&name.as_str()) {
+                        return Err(format!(
+                            "Unknown linter preset '{name}' in [linters.{name}]"
+                        ));
+                    }
+                    linter_definitions.insert(name, definition);
+                }
+            }
+        }
         let compat = self.compat.unwrap_or_default();
 
         if self.pandoc_compat.is_some() {
@@ -905,7 +955,8 @@ impl RawConfig {
             tab_stops: style.tab_stops,
             tab_width: style.tab_width,
             formatters: resolve_formatters(self.formatters),
-            linters: self.linters,
+            linters,
+            linter_definitions,
             lint: {
                 let mut lint = self.lint.unwrap_or_default().normalize();
                 lint.quarto_version = compat.quarto;
@@ -1070,6 +1121,7 @@ pub struct Config {
     /// Language → Formatter(s) mapping (supports multiple formatters per language)
     pub formatters: HashMap<String, Vec<FormatterConfig>>,
     pub linters: HashMap<String, String>,
+    pub linter_definitions: HashMap<String, LinterDefinition>,
     /// Max parallel external tool invocations (formatters/linters) per document.
     pub external_max_parallel: usize,
     /// Compatibility target for ambiguous Pandoc behavior.
@@ -1141,7 +1193,8 @@ impl Default for Config {
             blank_lines: BlankLines::Collapse,
             horizontal_rule_style: HorizontalRuleStyle::LineWidth,
             formatters: HashMap::new(), // Opt-in: empty by default
-            linters: HashMap::new(),    // Opt-in: empty by default
+            linter_definitions: HashMap::new(),
+            linters: HashMap::new(), // Opt-in: empty by default
             external_max_parallel: default_external_max_parallel(),
             parser: PandocCompat::default(),
             crossref_prefixes: Vec::new(),

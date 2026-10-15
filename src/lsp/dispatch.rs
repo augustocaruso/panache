@@ -819,6 +819,18 @@ impl GlobalState {
             .collect();
         self.pool.spawn(move || {
             let result = catch_cancelled(|| {
+                #[cfg(not(target_arch = "wasm32"))]
+                let execution = external
+                    .iter()
+                    .find_map(|uri| snap.execution_batch_for(uri))
+                    .map(|batch| {
+                        // Every URI consumes this shared batch, so refresh it
+                        // before any cached diagnostics enter the publication merge.
+                        snap.execution_cache.invalidate_project_config(&batch);
+                        let results = snap.execution_cache.get_or_run(&batch, true);
+                        snap.db().unwind_if_revision_cancelled();
+                        results
+                    });
                 // Merge every document's publishes by URI. A project-graph
                 // diagnostic for a shared path is accumulated once per project
                 // document, so the same `Diagnostic` value arrives from several
@@ -829,8 +841,13 @@ impl GlobalState {
                     std::collections::HashMap::new();
                 for uri in &uris {
                     let run_external = external.contains(uri);
-                    let mut publishes =
-                        handlers::diagnostics::compute_publishes(&snap, uri, run_external);
+                    let mut publishes = handlers::diagnostics::compute_publishes_with_execution(
+                        &snap,
+                        uri,
+                        run_external,
+                        #[cfg(not(target_arch = "wasm32"))]
+                        execution.clone(),
+                    );
                     let (manifest_pubs, _manifest_uris) =
                         handlers::diagnostics::manifest_publishes(&snap, uri);
                     publishes.extend(manifest_pubs);

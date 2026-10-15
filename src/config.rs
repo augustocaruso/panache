@@ -29,12 +29,43 @@ pub use types::FormatterConfig;
 pub use types::FormatterDefinition;
 pub use types::FormatterValue;
 pub use types::HorizontalRuleStyle;
+#[cfg(test)]
+pub(crate) use types::LINTER_PRESET_NAMES;
 pub use types::LineEnding;
 pub use types::LintConfig;
+pub use types::LinterDefinition;
 pub use types::MathDelimiterStyle;
 pub use types::NoBreakAbbreviations;
 pub use types::TabStopMode;
 pub use types::WrapMode;
+
+/// Whether a linter may load configuration outside Panache's tracked inputs.
+pub fn linter_uses_project_config(name: &str, definition: Option<&LinterDefinition>) -> bool {
+    // A replacement executable need not honor the preset's config flags.
+    if definition.is_some_and(|definition| definition.cmd.is_some()) {
+        return true;
+    }
+    match name {
+        "arity" | "fatou" | "badness" => !definition.is_some_and(|definition| {
+            definition
+                .prepend_args
+                .iter()
+                .chain(definition.args.iter().flatten())
+                .chain(&definition.append_args)
+                .take_while(|arg| arg.as_str() != "--")
+                .any(|arg| arg == "--no-config")
+        }),
+        // ESLint's default arguments disable config lookup, but overrides can
+        // enable it or select an explicit config file.
+        "eslint" => definition.is_some_and(|definition| {
+            definition.args.is_some()
+                || !definition.prepend_args.is_empty()
+                || !definition.append_args.is_empty()
+        }),
+        // Other presets can discover config files or accept paths to them.
+        _ => true,
+    }
+}
 
 // Globset forms (the engine `GlobMatcher` is built on): `**/<dir>/**` excludes
 // a directory of that name at any depth and everything under it, mirroring the
@@ -2741,5 +2772,16 @@ textual = [{ kind = "brace", domain = "text" }]
         assert!(inc.is_match("docs/guide/intro.qmd"));
         assert!(inc.is_match("readme.md"));
         assert!(!inc.is_match("script.py"));
+    }
+
+    #[test]
+    fn linter_definitions_reject_unknown_presets_and_fields() {
+        for input in [
+            "[linters.custom]\ncmd = \"custom\"\n",
+            "[linters.arity]\nappend_args = []\n",
+            "[linters]\nr = 42\n",
+        ] {
+            assert!(toml::from_str::<Config>(input).is_err(), "{input}");
+        }
     }
 }

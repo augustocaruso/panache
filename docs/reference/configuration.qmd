@@ -1805,6 +1805,44 @@ go = "staticcheck"
 rust = "clippy"
 ```
 
+### Preset Overrides
+
+Override a built-in linter's command or arguments with a named table:
+
+```toml
+[linters]
+r = "arity"
+
+[linters.arity]
+append-args = ["--ignore", "undefined-symbol"]
+```
+
+`cmd` replaces the executable, and `args` replaces the complete preset argument
+list. `prepend-args` and `append-args` add arguments before and after that list.
+Keep the preset's JSON output flags when replacing `args`, since Panache uses
+the preset's diagnostic parser. Named tables must refer to built-in presets.
+Panache appends the temporary input file path after the configured arguments.
+
+External linters run from the document's directory, so tools such as Arity,
+Fatou, and Badness can discover project configuration. ESLint and Clippy retain
+their isolated temporary working directories. Input without a document path uses
+Panache's working directory. Relative executable and configuration paths are
+resolved from the tool's working directory.
+
+Arity, Fatou, and Badness load their configuration by default. For example,
+`[lint] ignore` in `arity.toml` controls Arity's rules; `[lint] ignore` in
+`panache.toml` controls Panache's built-in rules. To use Arity's built-in
+defaults:
+
+```toml
+[linters.arity]
+args = ["lint", "--no-config", "--output", "json"]
+```
+
+Panache reruns these three linters instead of caching their results across lint
+runs, so changes to their configuration take effect without editing the
+document. Explicitly adding `--no-config` allows Panache to cache their results.
+
 Available linters:
 
   | Language              | Linter        | Command         | Notes                                      |

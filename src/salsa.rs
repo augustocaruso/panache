@@ -686,6 +686,8 @@ pub fn built_in_lint_plan(db: &dyn Db, file: FileText, config: FileConfig) -> Bu
                 crate::linter::code_block_collector::concatenate_for_lint(blocks, cfg.flavor)
             {
                 external_jobs.push(ExternalLintJob {
+                    document_path: db.path_of(file),
+                    definition: cfg.linter_definitions.get(linter_name).cloned(),
                     linter_name: linter_name.clone(),
                     language: language.clone(),
                     content: concatenated.content,
@@ -703,6 +705,8 @@ pub fn built_in_lint_plan(db: &dyn Db, file: FileText, config: FileConfig) -> Bu
 
 #[derive(Debug, Clone, Default)]
 pub struct ExternalLintJob {
+    pub document_path: Option<PathBuf>,
+    pub definition: Option<crate::config::LinterDefinition>,
     pub linter_name: String,
     pub language: String,
     pub content: String,

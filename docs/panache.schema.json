@@ -241,6 +241,58 @@
       },
       "type": "object"
     },
+    "LinterDefinition": {
+      "additionalProperties": false,
+      "description": "Overrides for a built-in external linter preset.",
+      "properties": {
+        "append-args": {
+          "default": [],
+          "description": "Arguments inserted after the base arguments.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "args": {
+          "default": null,
+          "description": "Complete argument list to use instead of the preset arguments.",
+          "items": {
+            "type": "string"
+          },
+          "type": [
+            "array",
+            "null"
+          ]
+        },
+        "cmd": {
+          "default": null,
+          "description": "Executable to use instead of the preset command.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "prepend-args": {
+          "default": [],
+          "description": "Arguments inserted before the base arguments.",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        }
+      },
+      "type": "object"
+    },
+    "LinterEntry": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "$ref": "#/$defs/LinterDefinition"
+        }
+      ]
+    },
     "MathArgumentConfig": {
       "additionalProperties": false,
       "description": "One positional argument in a configured TeX math-command signature.",
@@ -896,9 +948,8 @@
     },
     "linters": {
       "additionalProperties": {
-        "type": "string"
+        "$ref": "#/$defs/LinterEntry"
       },
-      "default": {},
       "type": "object"
     },
     "pandoc-compat": {

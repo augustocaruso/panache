@@ -109,10 +109,11 @@ r = "arity"
 ```
 
 `panache format` now formats R code blocks, and `panache lint` checks them.
-External linters use built-in presets; external formatters also accept custom
-commands. See the [formatter presets](../reference/formatter-presets.qmd),
-[linter presets](../reference/linter-presets.qmd), and their configuration
-details in the reference.
+External linters use built-in presets with command and argument overrides.
+External formatters also accept custom commands. See the [formatter
+presets](../reference/formatter-presets.qmd), [linter
+presets](../reference/linter-presets.qmd), and their configuration details in
+the reference.
 
 The [dprint plugin](integrations.qmd#dprint) uses `dprint.json` and does not
 load `panache.toml` or launch external tools.

@@ -242,6 +242,25 @@ pub(crate) fn compute_publishes(
     uri: &Uri,
     run_external: bool,
 ) -> Vec<Publish> {
+    compute_publishes_with_execution(
+        snap,
+        uri,
+        run_external,
+        #[cfg(not(target_arch = "wasm32"))]
+        None,
+    )
+}
+
+/// Keep every publication in a settle pass on the same external results,
+/// including failed runs that the cache will retry on a later pass.
+pub(crate) fn compute_publishes_with_execution(
+    snap: &StateSnapshot,
+    uri: &Uri,
+    run_external: bool,
+    #[cfg(not(target_arch = "wasm32"))] execution_results: Option<
+        Arc<crate::linter::execution_context::ExecutionResults>,
+    >,
+) -> Vec<Publish> {
     log::debug!(
         "compute_publishes uri={} run_external={}",
         uri.as_str(),
@@ -272,7 +291,8 @@ pub(crate) fn compute_publishes(
     let contextual = batch.is_some();
     #[cfg(not(target_arch = "wasm32"))]
     let execution = batch.as_ref().map(|batch| {
-        let result = snap.execution_cache.get_or_run(batch, run_external);
+        let result = execution_results
+            .unwrap_or_else(|| snap.execution_cache.get_or_run(batch, run_external));
         snap.db().unwind_if_revision_cancelled();
         result
     });
@@ -280,16 +300,8 @@ pub(crate) fn compute_publishes(
     #[cfg(not(target_arch = "wasm32"))]
     if !contextual && run_external && !external_jobs.is_empty() {
         let text = line_index.text_arc();
-        let registry = crate::linter::external_linters::ExternalLinterRegistry::new();
         for job in &external_jobs {
-            match crate::linter::external_linters_sync::run_linter_sync(
-                &job.linter_name,
-                &job.language,
-                &job.content,
-                &text,
-                &registry,
-                Some(job.mappings.as_slice()),
-            ) {
+            match crate::linter::external_linters_sync::run_linter_job_sync(job, &text) {
                 Ok(diags) => panache_diagnostics.extend(diags),
                 Err(e) => log::warn!("External linter failed: {e}"),
             }

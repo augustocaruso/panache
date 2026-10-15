@@ -249,7 +249,7 @@ fn include_execution_cache_tracks_parent_changes_and_new_parents() {
     .unwrap();
     fs::write(
         dir.path().join("panache.toml"),
-        "[linters]\nr = \"arity\"\n",
+        "[linters]\nr = \"arity\"\n[linters.arity]\nappend-args = [\"--no-config\"]\n",
     )
     .unwrap();
     fs::write(
@@ -285,6 +285,60 @@ fn include_execution_cache_tracks_parent_changes_and_new_parents() {
         .stdout(predicate::str::contains("another.qmd"));
     fs::remove_file(dir.path().join("another.qmd")).unwrap();
     lint().assert().success();
+}
+
+#[test]
+fn include_execution_cache_rechecks_parent_linter_configuration() {
+    if which::which("arity").is_err() {
+        return;
+    }
+    let dir = TempDir::new().unwrap();
+    fs::create_dir(dir.path().join("partials")).unwrap();
+    fs::write(
+        dir.path().join("_quarto.yml"),
+        "project:\n  type: default\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("panache.toml"),
+        "[lint]\nselect = []\n[linters]\nr = \"arity\"\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("partials/panache.toml"),
+        "[lint]\nselect = []\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("parent.qmd"),
+        "{{< include partials/_child.md >}}\n",
+    )
+    .unwrap();
+    fs::write(
+        dir.path().join("partials/_child.md"),
+        "```{r}\nprint(missing_value)\n```\n",
+    )
+    .unwrap();
+    let config = dir.path().join("arity.toml");
+    fs::write(&config, "[lint]\nignore = []\n").unwrap();
+    let lint = || {
+        let mut cmd = cargo_bin_cmd!("panache");
+        cmd.current_dir(dir.path())
+            .args(["lint", "--cache-dir", ".cache", "partials/_child.md"]);
+        cmd
+    };
+    lint()
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("undefined-symbol"));
+    fs::write(&config, "[lint]\nignore = [\"undefined-symbol\"]\n").unwrap();
+    lint().arg("--no-cache").assert().success();
+    lint().assert().success();
+    fs::write(&config, "[lint]\nignore = []\n").unwrap();
+    lint()
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("undefined-symbol"));
 }
 
 #[test]
@@ -2145,4 +2199,311 @@ fn lint_cli_selection_applies_to_explicit_quarto_manifests() {
         ])
         .assert()
         .success();
+}
+
+#[test]
+fn ruff_project_config_changes_refresh_cached_diagnostics() {
+    if which::which("ruff").is_err() {
+        return;
+    }
+    let project = TempDir::new().unwrap();
+    let caller = TempDir::new().unwrap();
+    let nested = project.path().join("notebooks");
+    fs::create_dir(&nested).unwrap();
+    fs::write(
+        project.path().join("panache.toml"),
+        "[lint]\nselect = []\n[linters]\npython = \"ruff\"\n",
+    )
+    .unwrap();
+    let config = project.path().join("ruff.toml");
+    for filename in ["doc.md", "doc.qmd"] {
+        let document = nested.join(filename);
+        fs::write(&document, "```python\nimport os\n```\n").unwrap();
+        let run = || {
+            let mut command = cargo_bin_cmd!("panache");
+            command
+                .current_dir(caller.path())
+                .args(["lint", "--cache-dir"])
+                .arg(project.path().join("cache"))
+                .arg(&document);
+            command
+        };
+        fs::write(&config, "[lint]\nignore = [\"F401\"]\n").unwrap();
+        run().assert().success();
+        fs::write(&config, "[lint]\nignore = []\n").unwrap();
+        run()
+            .arg("--no-cache")
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains("F401"));
+        run()
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains("F401"));
+    }
+}
+
+#[test]
+fn eslint_config_override_changes_refresh_cached_diagnostics() {
+    if which::which("eslint").is_err() {
+        return;
+    }
+    let dir = TempDir::new().unwrap();
+    let config = dir.path().join("eslint.config.mjs");
+    fs::write(
+        dir.path().join("panache.toml"),
+        format!(
+            "[lint]\nselect = []\n[linters]\njs = \"eslint\"\n[linters.eslint]\nappend-args = [\"--config\", '{}']\n",
+            config.display()
+        ),
+    )
+    .unwrap();
+    for filename in ["doc.md", "doc.qmd"] {
+        fs::write(dir.path().join(filename), "```js\nmissing_value;\n```\n").unwrap();
+        let run = || {
+            let mut command = cargo_bin_cmd!("panache");
+            command
+                .current_dir(dir.path())
+                .args(["lint", "--cache-dir", "cache", filename]);
+            command
+        };
+        fs::write(&config, "export default [{rules: {'no-undef': 'off'}}];\n").unwrap();
+        run().assert().success();
+        fs::write(
+            &config,
+            "export default [{rules: {'no-undef': 'error'}}];\n",
+        )
+        .unwrap();
+        run()
+            .arg("--no-cache")
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains("no-undef"));
+        run()
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains("no-undef"));
+    }
+}
+
+#[test]
+fn arity_uses_notebook_project_config_and_allows_preset_overrides() {
+    if which::which("arity").is_err() {
+        return;
+    }
+    let project = TempDir::new().unwrap();
+    let caller = TempDir::new().unwrap();
+    let nested = project.path().join("notebooks");
+    fs::create_dir(&nested).unwrap();
+    let document = nested.join("analysis.qmd");
+    fs::write(&document, "```{r}\nprint(missing_value)\n```\n").unwrap();
+    fs::write(
+        project.path().join("panache.toml"),
+        "[lint]\nselect = []\n[linters]\nr = \"arity\"\n",
+    )
+    .unwrap();
+    fs::write(
+        project.path().join("arity.toml"),
+        "[lint]\nignore = [\"undefined-symbol\"]\n",
+    )
+    .unwrap();
+    let run = || {
+        let mut command = cargo_bin_cmd!("panache");
+        command
+            .current_dir(caller.path())
+            .arg("lint")
+            .arg(&document);
+        command
+    };
+    run().assert().success();
+    fs::write(project.path().join("arity.toml"), "[lint]\nignore = []\n").unwrap();
+    run()
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("undefined-symbol"));
+    fs::write(
+        project.path().join("arity.toml"),
+        "[lint]\nignore = [\"undefined-symbol\"]\n",
+    )
+    .unwrap();
+
+    fs::write(project.path().join("panache.toml"), "[lint]\nselect = []\n[linters]\nr = \"arity\"\n[linters.arity]\nargs = [\"lint\", \"--no-config\", \"--output\", \"json\"]\n").unwrap();
+    run()
+        .assert()
+        .failure()
+        .stdout(predicate::str::contains("undefined-symbol"));
+    fs::write(project.path().join("panache.toml"), "[lint]\nselect = []\n[linters]\nr = \"arity\"\n[linters.arity]\nappend-args = [\"--ignore\", \"undefined-symbol\"]\n").unwrap();
+    fs::write(project.path().join("arity.toml"), "[lint]\nignore = []\n").unwrap();
+    run().assert().success();
+}
+
+#[cfg(unix)]
+#[test]
+fn linter_command_and_argument_overrides_reach_the_process() {
+    let dir = TempDir::new().unwrap();
+    let executable = dir.path().join("custom linter");
+    fs::write(&executable, "#!/bin/sh\nprintf '%s\\n' \"$PWD\" \"$@\" > \"$PANACHE_TEST_LINTER_LOG\"\nprintf '[]\\n'\n").unwrap();
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+    let config = r#"
+[lint]
+select = []
+[linters]
+r = "arity"
+[linters.arity]
+cmd = './custom linter'
+args = ["lint", "--output", "json"]
+prepend-args = ["--prefix"]
+append-args = ["--suffix"]
+"#;
+    fs::write(dir.path().join("panache.toml"), config).unwrap();
+    let caller = TempDir::new().unwrap();
+    for filename in ["doc.md", "doc.qmd"] {
+        let document = dir.path().join(filename);
+        fs::write(&document, "```r\nprint(x)\n```\n").unwrap();
+        let log = dir.path().join("invocation.txt");
+        for stdin in [false, true] {
+            let mut cmd = cargo_bin_cmd!("panache");
+            cmd.current_dir(caller.path())
+                .env("PANACHE_TEST_LINTER_LOG", &log)
+                .args(["lint", "--no-cache"]);
+            if stdin {
+                cmd.arg("--stdin-filename")
+                    .arg(&document)
+                    .write_stdin("```r\nprint(x)\n```\n");
+            } else {
+                cmd.arg(&document);
+            }
+            cmd.assert().success();
+            let invocation = fs::read_to_string(&log).unwrap();
+            let lines: Vec<_> = invocation.lines().collect();
+            assert_eq!(lines[0], dir.path().to_str().unwrap());
+            assert_eq!(
+                &lines[1..6],
+                &["--prefix", "lint", "--output", "json", "--suffix"]
+            );
+            assert!(lines[6].ends_with("/input.R"));
+            fs::remove_file(&log).unwrap();
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn pathless_stdin_runs_relative_linter_commands_in_isolated_directories() {
+    let dir = TempDir::new().unwrap();
+    let executable = dir.path().join("node_modules/.bin/custom linter");
+    fs::create_dir_all(executable.parent().unwrap()).unwrap();
+    let log = dir.path().join("invocation.txt");
+    let cases = [
+        (
+            "eslint",
+            "js",
+            "const unused = 1;",
+            r#"[{"messages":[{"ruleId":"relative-command","severity":2,"message":"Relative executable ran","line":2,"column":1}]}]"#,
+        ),
+        (
+            "clippy",
+            "rust",
+            "fn main() {}",
+            r#"{"$message_type":"diagnostic","message":"Relative executable ran","level":"error","code":{"code":"relative-command"},"spans":[{"line_start":2,"column_start":1,"line_end":2,"column_end":2,"is_primary":true}]}"#,
+        ),
+    ];
+    for (linter, language, code, output) in cases {
+        fs::write(
+            &executable,
+            format!(
+                "#!/bin/sh\nprintf '%s\\n' \"$PWD\" > \"$PANACHE_TEST_LINTER_LOG\"\nprintf '%s\\n' '{output}'\n"
+            ),
+        )
+        .unwrap();
+        fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+        fs::write(
+            dir.path().join("panache.toml"),
+            format!(
+                "[lint]\nselect = []\n[linters]\n{language} = '{linter}'\n[linters.{linter}]\ncmd = './node_modules/.bin/custom linter'\n"
+            ),
+        )
+        .unwrap();
+        for explicit_stdin in [false, true] {
+            let mut command = cargo_bin_cmd!("panache");
+            command
+                .current_dir(dir.path())
+                .env("PANACHE_TEST_LINTER_LOG", &log)
+                .args(["lint", "--no-cache"]);
+            if explicit_stdin {
+                command.arg("-");
+            }
+            command
+                .write_stdin(format!("```{language}\n{code}\n```\n"))
+                .assert()
+                .failure()
+                .stdout(predicate::str::contains("relative-command"));
+            let working_dir = fs::read_to_string(&log).unwrap();
+            assert_ne!(std::path::Path::new(working_dir.trim()), dir.path());
+            fs::remove_file(&log).unwrap();
+        }
+    }
+}
+
+#[test]
+fn stdin_filename_uses_linter_project_configuration() {
+    if which::which("arity").is_err() {
+        return;
+    }
+    let project = TempDir::new().unwrap();
+    let caller = TempDir::new().unwrap();
+    fs::write(
+        project.path().join("panache.toml"),
+        "[lint]\nselect = []\n[linters]\nr = \"arity\"\n",
+    )
+    .unwrap();
+    fs::write(caller.path().join("arity.toml"), "[lint]\nignore = []\n").unwrap();
+    let source = "```r\nprint(missing_value)\n```\n";
+    for filename in ["doc.md", "doc.qmd"] {
+        let document = project.path().join(filename);
+        let run = || {
+            let mut cmd = cargo_bin_cmd!("panache");
+            cmd.current_dir(caller.path())
+                .args(["lint", "--stdin-filename"])
+                .arg(&document)
+                .write_stdin(source);
+            cmd
+        };
+        fs::write(
+            project.path().join("arity.toml"),
+            "[lint]\nignore = [\"undefined-symbol\"]\n",
+        )
+        .unwrap();
+        run().assert().success();
+        fs::write(project.path().join("arity.toml"), "[lint]\nignore = []\n").unwrap();
+        run()
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains("undefined-symbol"));
+        fs::write(
+            project.path().join("panache.toml"),
+            "[lint]\nselect = []\n[linters]\nr = \"arity\"\n[linters.arity]\nappend-args = [\"--config\", \"./lint-config.toml\"]\n",
+        )
+        .unwrap();
+        fs::write(
+            project.path().join("lint-config.toml"),
+            "[lint]\nignore = [\"undefined-symbol\"]\n",
+        )
+        .unwrap();
+        run().assert().success();
+        fs::write(
+            project.path().join("lint-config.toml"),
+            "[lint]\nignore = []\n",
+        )
+        .unwrap();
+        run()
+            .assert()
+            .failure()
+            .stdout(predicate::str::contains("undefined-symbol"));
+        fs::write(
+            project.path().join("panache.toml"),
+            "[lint]\nselect = []\n[linters]\nr = \"arity\"\n",
+        )
+        .unwrap();
+    }
 }

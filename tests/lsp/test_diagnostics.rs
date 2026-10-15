@@ -1175,3 +1175,220 @@ fn test_code_action_convert_task_list_to_ordered() {
     assert_eq!(edits[2].new_text, "2.");
     assert_eq!(edits[3].new_text, "");
 }
+
+#[test]
+fn arity_project_config_refreshes_all_open_documents_on_any_save() {
+    if which::which("arity").is_err() {
+        return;
+    }
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("panache.toml"),
+        "[lint]\nselect = []\n[linters]\nr = \"arity\"\n",
+    )
+    .unwrap();
+    let config = dir.path().join("arity.toml");
+    fs::write(&config, "[lint]\nignore = []\n").unwrap();
+    let source = "```{r}\nprint(missing_value)\n```\n";
+    let uris: Vec<_> = ["one.qmd", "two.qmd", "three.qmd"]
+        .into_iter()
+        .map(|filename| {
+            let path = dir.path().join(filename);
+            fs::write(&path, source).unwrap();
+            Uri::from_file_path(path).unwrap().to_string()
+        })
+        .collect();
+    let mut server = TestLspServer::new();
+    server.initialize(Uri::from_file_path(dir.path()).unwrap().as_str());
+    for uri in &uris {
+        server.open_document(uri, source, "quarto");
+    }
+    // Saving each URI exercises consumers both before and after the saved
+    // document, regardless of the document map's iteration order.
+    for saved in &uris {
+        fs::write(&config, "[lint]\nignore = []\n").unwrap();
+        for uri in &uris {
+            server.save_document(uri);
+        }
+        server.pump(Duration::from_secs(5));
+        let publications = server.drain_all_publish_diagnostics();
+        for uri in &uris {
+            assert!(
+                publications
+                    .iter()
+                    .rev()
+                    .find(|publication| publication.uri.as_str() == uri)
+                    .unwrap_or_else(|| panic!("no publication for {uri}: {publications:#?}"))
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code
+                        == Some(NumberOrString::String("undefined-symbol".into()))),
+                "{uri}: {publications:#?}"
+            );
+        }
+        fs::write(&config, "[lint]\nignore = [\"undefined-symbol\"]\n").unwrap();
+        server.save_document(saved);
+        server.pump(Duration::from_secs(5));
+        let publications = server.drain_all_publish_diagnostics();
+        for uri in &uris {
+            assert!(
+                publications
+                    .iter()
+                    .rev()
+                    .find(|publication| publication.uri.as_str() == uri)
+                    .unwrap_or_else(|| {
+                        panic!("saved {saved}, no publication for {uri}: {publications:#?}")
+                    })
+                    .diagnostics
+                    .is_empty(),
+                "saved {saved}, published {uri}: {publications:#?}"
+            );
+        }
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn execution_batch_runs_once_per_settle_pass() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let dir = TempDir::new().unwrap();
+    let executable = dir.path().join("linter");
+    fs::write(
+        &executable,
+        "#!/bin/sh\nprintf 'run\\n' >> invocations.log\nif [ -f fail ]; then exit 1; fi\nprintf '[]\\n'\n",
+    )
+    .unwrap();
+    fs::set_permissions(&executable, fs::Permissions::from_mode(0o755)).unwrap();
+    fs::write(
+        dir.path().join("panache.toml"),
+        "[lint]\nselect = []\n[linters]\nr = \"arity\"\n[linters.arity]\ncmd = './linter'\n",
+    )
+    .unwrap();
+    let source = "```{r}\nx <- 1\nprint(x)\n```\n";
+    let mut server = TestLspServer::new();
+    server.initialize(Uri::from_file_path(dir.path()).unwrap().as_str());
+    let uris: Vec<_> = ["one.qmd", "two.qmd", "three.qmd"]
+        .into_iter()
+        .map(|filename| {
+            let path = dir.path().join(filename);
+            fs::write(&path, source).unwrap();
+            let uri = Uri::from_file_path(path).unwrap().to_string();
+            server.open_document(&uri, source, "quarto");
+            uri
+        })
+        .collect();
+    server.pump(Duration::from_secs(5));
+    let log = dir.path().join("invocations.log");
+    assert_eq!(fs::read_to_string(&log).unwrap().lines().count(), 3);
+    let failure = dir.path().join("fail");
+    for (fail, expected) in [(false, 6), (true, 9), (false, 12)] {
+        if fail {
+            fs::write(&failure, "").unwrap();
+        } else if failure.exists() {
+            fs::remove_file(&failure).unwrap();
+        }
+        for uri in &uris {
+            server.save_document(uri);
+        }
+        server.pump(Duration::from_secs(5));
+        assert_eq!(fs::read_to_string(&log).unwrap().lines().count(), expected);
+    }
+}
+
+#[test]
+fn ruff_project_config_is_refreshed_on_save() {
+    if which::which("ruff").is_err() {
+        return;
+    }
+    let dir = TempDir::new().unwrap();
+    fs::create_dir(dir.path().join("notebooks")).unwrap();
+    fs::write(
+        dir.path().join("panache.toml"),
+        "[lint]\nselect = []\n[linters]\npython = \"ruff\"\n",
+    )
+    .unwrap();
+    let config = dir.path().join("ruff.toml");
+    let source = "```python\nimport os\n```\n";
+    for (filename, language) in [("doc.qmd", "quarto"), ("doc.md", "markdown")] {
+        fs::write(&config, "[lint]\nignore = [\"F401\"]\n").unwrap();
+        let path = dir.path().join("notebooks").join(filename);
+        fs::write(&path, source).unwrap();
+        let uri = Uri::from_file_path(&path).unwrap().to_string();
+        let mut server = TestLspServer::new();
+        server.initialize(Uri::from_file_path(dir.path()).unwrap().as_str());
+        server.open_document(&uri, source, language);
+        server.save_document(&uri);
+        server.pump(Duration::from_secs(5));
+        assert!(
+            server
+                .drain_publish_diagnostics(&uri)
+                .last()
+                .expect("published diagnostics")
+                .diagnostics
+                .is_empty()
+        );
+        fs::write(&config, "[lint]\nignore = []\n").unwrap();
+        server.save_document(&uri);
+        server.pump(Duration::from_secs(5));
+        let publications = server.drain_publish_diagnostics(&uri);
+        assert!(
+            publications
+                .last()
+                .expect("published diagnostics")
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == Some(NumberOrString::String("F401".into()))),
+            "{filename}: {publications:#?}"
+        );
+    }
+}
+
+#[test]
+fn arity_project_config_is_used_and_refreshed_on_save() {
+    if which::which("arity").is_err() {
+        return;
+    }
+    for (filename, language) in [("doc.qmd", "quarto"), ("doc.md", "markdown")] {
+        let dir = TempDir::new().unwrap();
+        fs::create_dir(dir.path().join("notebooks")).unwrap();
+        fs::write(
+            dir.path().join("panache.toml"),
+            "[lint]\nselect = []\n[linters]\nr = \"arity\"\n",
+        )
+        .unwrap();
+        let config = dir.path().join("arity.toml");
+        fs::write(&config, "[lint]\nignore = [\"undefined-symbol\"]\n").unwrap();
+        let path = dir.path().join("notebooks").join(filename);
+        let source = "```r\nprint(missing_value)\n```\n";
+        fs::write(&path, source).unwrap();
+        let uri = Uri::from_file_path(&path).unwrap().to_string();
+        let mut server = TestLspServer::new();
+        server.initialize(Uri::from_file_path(dir.path()).unwrap().as_str());
+        server.open_document(&uri, source, language);
+        server.save_document(&uri);
+        server.pump(Duration::from_secs(5));
+        let publications = server.drain_publish_diagnostics(&uri);
+        assert!(
+            publications
+                .last()
+                .expect("published diagnostics")
+                .diagnostics
+                .is_empty()
+        );
+        fs::write(&config, "[lint]\nignore = []\n").unwrap();
+        server.save_document(&uri);
+        server.pump(Duration::from_secs(5));
+        let publications = server.drain_publish_diagnostics(&uri);
+        assert!(
+            publications
+                .last()
+                .expect("published diagnostics")
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code
+                    == Some(NumberOrString::String("undefined-symbol".into()))),
+            "{filename}: {publications:#?}"
+        );
+    }
+}

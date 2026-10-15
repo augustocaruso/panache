@@ -1705,19 +1705,13 @@ fn run() -> io::Result<()> {
                     let absolute = panache::linter::execution_context::normalize_path(
                         &std::path::absolute(filename)?,
                     );
-                    if cfg.flavor == Flavor::Quarto
-                        || panache::includes::find_quarto_root(&absolute).is_some()
-                    {
-                        lint_stdin_execution(&input, &cfg, &absolute, |candidate| {
-                            load_lint_config(
-                                candidate.parent().unwrap_or(Path::new(".")),
-                                Some(candidate),
-                            )
-                            .map(|(cfg, _)| cfg)
-                        })?
-                    } else {
-                        None
-                    }
+                    lint_stdin_execution(&input, &cfg, &absolute, |candidate| {
+                        load_lint_config(
+                            candidate.parent().unwrap_or(Path::new(".")),
+                            Some(candidate),
+                        )
+                        .map(|(cfg, _)| cfg)
+                    })?
                 } else {
                     None
                 };
@@ -2101,6 +2095,11 @@ fn run() -> io::Result<()> {
                     };
                     let execution_results = std::sync::OnceLock::new();
                     let execution_key = execution_batch.as_ref().map(|batch| batch.fingerprint());
+                    // A partial's own config can omit linters while its parents
+                    // still read tool-owned configuration outside the cache key.
+                    let cache_supports_execution = execution_batch
+                        .as_ref()
+                        .is_none_or(|batch| !batch.uses_project_config());
 
                     let graph_ref = &graph_by_config;
                     // `SalsaDb` is `!Sync` (its query stack is a `RefCell`), so each
@@ -2118,16 +2117,20 @@ fn run() -> io::Result<()> {
                         } else {
                             None
                         };
-                        let cache_keys = job.cache_store.as_ref().map(|(ff, cf, tf)| {
-                            (
-                                ff.clone(),
-                                match &execution_key {
-                                    Some(key) => format!("{cf}:{key}"),
-                                    None => cf.clone(),
-                                },
-                                tf.clone(),
-                            )
-                        });
+                        let cache_keys = job
+                            .cache_store
+                            .as_ref()
+                            .filter(|_| cache_supports_execution)
+                            .map(|(ff, cf, tf)| {
+                                (
+                                    ff.clone(),
+                                    match &execution_key {
+                                        Some(key) => format!("{cf}:{key}"),
+                                        None => cf.clone(),
+                                    },
+                                    tf.clone(),
+                                )
+                            });
                         if let (Some(cache), Some((ff, cf, tf))) =
                             (cache_shared.as_ref(), cache_keys.as_ref())
                             && let Some(cached) = cache
@@ -3008,20 +3011,11 @@ fn run_external_lint_jobs_sync(
     jobs: &[panache::salsa::ExternalLintJob],
     input: &str,
 ) -> Vec<panache::linter::Diagnostic> {
-    use panache::linter::external_linters::ExternalLinterRegistry;
-    use panache::linter::external_linters_sync::run_linter_sync;
+    use panache::linter::external_linters_sync::run_linter_job_sync;
 
-    let registry = ExternalLinterRegistry::new();
     let mut out = Vec::new();
     for job in jobs {
-        match run_linter_sync(
-            &job.linter_name,
-            &job.language,
-            &job.content,
-            input,
-            &registry,
-            Some(&job.mappings),
-        ) {
+        match run_linter_job_sync(job, input) {
             Ok(diags) => out.extend(diags),
             Err(err) => log::warn!("External linter '{}' failed: {}", job.linter_name, err),
         }

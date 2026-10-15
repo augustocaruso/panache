@@ -18,6 +18,50 @@ pub fn run_linter_sync(
     registry: &ExternalLinterRegistry,
     mappings: Option<&[crate::linter::code_block_collector::BlockMapping]>,
 ) -> Result<Vec<Diagnostic>, LinterError> {
+    run_linter_in_document(
+        linter_name,
+        language,
+        code,
+        original_input,
+        registry,
+        mappings,
+        None,
+    )
+}
+
+/// Run a planned job using its document location and preset overrides.
+pub fn run_linter_job_sync(
+    job: &crate::salsa::ExternalLintJob,
+    original_input: &str,
+) -> Result<Vec<Diagnostic>, LinterError> {
+    let definitions = job
+        .definition
+        .clone()
+        .map(|definition| (job.linter_name.clone(), definition))
+        .into_iter()
+        .collect();
+    let registry = ExternalLinterRegistry::for_document(&definitions, job.document_path.as_deref());
+    run_linter_in_document(
+        &job.linter_name,
+        &job.language,
+        &job.content,
+        original_input,
+        &registry,
+        Some(&job.mappings),
+        job.document_path.as_deref(),
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn run_linter_in_document(
+    linter_name: &str,
+    language: &str,
+    code: &str,
+    original_input: &str,
+    registry: &ExternalLinterRegistry,
+    mappings: Option<&[crate::linter::code_block_collector::BlockMapping]>,
+    document_path: Option<&std::path::Path>,
+) -> Result<Vec<Diagnostic>, LinterError> {
     let linter_info = registry
         .get(linter_name)
         .ok_or_else(|| LinterError::SpawnFailed(format!("unknown linter: {}", linter_name)))?;
@@ -34,12 +78,25 @@ pub fn run_linter_sync(
     let (_temp_dir, temp_path) =
         crate::linter::external_linters::create_linter_temp_input(language, code)?;
 
-    // Build command
-    let mut cmd = Command::new(linter_info.command);
-    cmd.args(linter_info.args.iter());
+    // Resolve executable paths before a temporary working directory changes
+    // their meaning, including when the caller has no document path.
+    let command = std::path::Path::new(linter_info.command.as_ref());
+    let command = if command.is_relative() && command.components().count() > 1 {
+        std::env::current_dir()?.join(command)
+    } else {
+        command.to_path_buf()
+    };
+    let mut cmd = Command::new(command);
+    cmd.args(linter_info.args.iter().map(|arg| arg.as_ref()));
     crate::linter::external_linters::append_language_specific_args(&mut cmd, linter_name, language);
     if (linter_name.eq_ignore_ascii_case("eslint") || linter_name.eq_ignore_ascii_case("clippy"))
         && let Some(parent) = temp_path.parent()
+    {
+        cmd.current_dir(parent);
+    }
+    if !matches!(linter_name, "eslint" | "clippy")
+        && let Some(parent) = document_path.and_then(std::path::Path::parent)
+        && !parent.as_os_str().is_empty()
     {
         cmd.current_dir(parent);
     }

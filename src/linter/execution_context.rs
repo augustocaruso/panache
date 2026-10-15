@@ -109,6 +109,8 @@ pub fn execution_plan(db: &dyn Db, file: FileText, config: FileConfig) -> Execut
             };
             for joined in concatenate_for_lint(blocks, config.config(db).flavor) {
                 plan.jobs.push(ExternalLintJob {
+                    document_path: Some(plan.root.clone()),
+                    definition: config.config(db).linter_definitions.get(linter).cloned(),
                     language: language.clone(),
                     linter_name: linter.clone(),
                     content: joined.content,
@@ -378,6 +380,13 @@ impl ExecutionBatch {
         format!("{:016x}", hash.finish())
     }
 
+    /// Whether any contributing linter reads configuration outside this batch.
+    pub fn uses_project_config(&self) -> bool {
+        self.plans.iter().flat_map(|plan| &plan.jobs).any(|job| {
+            crate::config::linter_uses_project_config(&job.linter_name, job.definition.as_ref())
+        })
+    }
+
     pub fn source_text(&self, path: &Path) -> Option<&str> {
         self.plans
             .iter()
@@ -387,36 +396,34 @@ impl ExecutionBatch {
     }
 
     pub fn run(&self) -> ExecutionResults {
-        let registry = super::external_linters::ExternalLinterRegistry::new();
-        let missing = super::external_linters::find_missing_linter_commands(
-            self.plans
-                .iter()
-                .flat_map(|p| &p.jobs)
-                .map(|j| j.linter_name.as_str()),
-            &registry,
-        );
-        super::external_linters::log_missing_linter_commands(&missing);
         let mut results = Vec::new();
         for plan in &self.plans {
+            let definitions = plan
+                .jobs
+                .iter()
+                .filter_map(|job| job.definition.clone().map(|d| (job.linter_name.clone(), d)))
+                .collect();
+            let registry = super::external_linters::ExternalLinterRegistry::for_document(
+                &definitions,
+                Some(&plan.root),
+            );
+            let missing = super::external_linters::find_missing_linter_commands(
+                plan.jobs.iter().map(|job| job.linter_name.as_str()),
+                &registry,
+            );
+            super::external_linters::log_missing_linter_commands(&missing);
             let mut diagnostics = Vec::new();
             let mut complete = plan.complete;
             for job in &plan.jobs {
                 if registry
                     .get(&job.linter_name)
-                    .is_some_and(|tool| missing.contains(tool.command))
+                    .is_some_and(|tool| missing.contains(tool.command.as_ref()))
                 {
                     complete = false;
                     continue;
                 }
                 let _permit = crate::external_tools_common::acquire_external_tool_permit();
-                match super::external_linters_sync::run_linter_sync(
-                    &job.linter_name,
-                    &job.language,
-                    &job.content,
-                    &plan.original_input,
-                    &registry,
-                    Some(&job.mappings),
-                ) {
+                match super::external_linters_sync::run_linter_job_sync(job, &plan.original_input) {
                     Ok(items) => diagnostics.extend(
                         items
                             .into_iter()
@@ -568,6 +575,16 @@ pub struct ExecutionResults {
 pub struct ExecutionCache(Mutex<HashMap<String, Arc<OnceLock<Arc<ExecutionResults>>>>>);
 
 impl ExecutionCache {
+    /// Refresh tool-owned configuration before collecting a pass's diagnostics.
+    pub fn invalidate_project_config(&self, batch: &ExecutionBatch) {
+        if batch.uses_project_config() {
+            self.0
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .remove(&batch.fingerprint());
+        }
+    }
+
     pub fn get_or_run(&self, batch: &ExecutionBatch, run: bool) -> Arc<ExecutionResults> {
         let key = batch.fingerprint();
         let slot = {

@@ -1,5 +1,6 @@
 //! External linter integration for code blocks.
 
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -69,8 +70,8 @@ pub struct LinterInfo {
     pub name: &'static str,
     pub description: &'static str,
     pub url: &'static str,
-    pub command: &'static str,
-    pub args: Vec<&'static str>,
+    pub command: Cow<'static, str>,
+    pub args: Vec<Cow<'static, str>>,
     pub supported_languages: Vec<&'static str>,
 }
 
@@ -143,8 +144,8 @@ impl ExternalLinterRegistry {
                 name: "jarl",
                 description: "Jarl is a fast linter for R: it does static code analysis to search for programming errors, bugs, and suspicious patterns of code.",
                 url: "https://github.com/etiennebacher/jarl",
-                command: "jarl",
-                args: vec!["check", "--output-format=json"],
+                command: "jarl".into(),
+                args: vec!["check", "--output-format=json"].into_iter().map(Into::into).collect(),
                 supported_languages: vec!["r"],
             },
         );
@@ -154,8 +155,8 @@ impl ExternalLinterRegistry {
                 name: "arity",
                 description: "A language server, formatter, and linter for R with correctness, readability, and performance lints and safe autofixes.",
                 url: "https://github.com/jolars/arity",
-                command: "arity",
-                args: vec!["lint", "--no-config", "--output", "json"],
+                command: "arity".into(),
+                args: vec!["lint", "--output", "json"].into_iter().map(Into::into).collect(),
                 supported_languages: vec!["r"],
             },
         );
@@ -165,8 +166,8 @@ impl ExternalLinterRegistry {
                 name: "badness",
                 description: "A language server, formatter, and linter for LaTeX built on a lossless concrete syntax tree.",
                 url: "https://github.com/jolars/badness",
-                command: "badness",
-                args: vec!["lint", "--no-config", "--output", "json"],
+                command: "badness".into(),
+                args: vec!["lint", "--output", "json"].into_iter().map(Into::into).collect(),
                 supported_languages: vec!["latex", "tex"],
             },
         );
@@ -176,8 +177,8 @@ impl ExternalLinterRegistry {
                 name: "fatou",
                 description: "A language server, formatter, and linter for Julia that never requires running Julia itself.",
                 url: "https://github.com/jolars/fatou",
-                command: "fatou",
-                args: vec!["lint", "--no-config", "--output", "json"],
+                command: "fatou".into(),
+                args: vec!["lint", "--output", "json"].into_iter().map(Into::into).collect(),
                 supported_languages: vec!["julia", "jl"],
             },
         );
@@ -187,8 +188,8 @@ impl ExternalLinterRegistry {
                 name: "ruff",
                 description: "An extremely fast Python linter and code formatter, written in Rust. ",
                 url: "https://docs.astral.sh/ruff/",
-                command: "ruff",
-                args: vec!["check", "--output-format", "json"],
+                command: "ruff".into(),
+                args: vec!["check", "--output-format", "json"].into_iter().map(Into::into).collect(),
                 supported_languages: vec!["python"],
             },
         );
@@ -198,14 +199,17 @@ impl ExternalLinterRegistry {
                 name: "eslint",
                 description: "JavaScript and TypeScript linter.",
                 url: "https://eslint.org/",
-                command: "eslint",
+                command: "eslint".into(),
                 args: vec![
                     "--no-config-lookup",
                     "--rule",
                     "no-unused-vars:error",
                     "--format",
                     "json",
-                ],
+                ]
+                .into_iter()
+                .map(Into::into)
+                .collect(),
                 supported_languages: vec![
                     "js",
                     "javascript",
@@ -224,8 +228,8 @@ impl ExternalLinterRegistry {
                 name: "shellcheck",
                 description: "Static analysis for shell scripts.",
                 url: "https://www.shellcheck.net/",
-                command: "shellcheck",
-                args: vec!["-f", "json"],
+                command: "shellcheck".into(),
+                args: vec!["-f", "json"].into_iter().map(Into::into).collect(),
                 supported_languages: vec!["sh", "bash", "zsh", "ksh", "shell"],
             },
         );
@@ -235,8 +239,8 @@ impl ExternalLinterRegistry {
                 name: "staticcheck",
                 description: "Advanced static analysis for Go code.",
                 url: "https://staticcheck.dev/",
-                command: "staticcheck",
-                args: vec!["-f", "json"],
+                command: "staticcheck".into(),
+                args: vec!["-f", "json"].into_iter().map(Into::into).collect(),
                 supported_languages: vec!["go", "golang"],
             },
         );
@@ -246,12 +250,57 @@ impl ExternalLinterRegistry {
                 name: "clippy",
                 description: "Rust lints to catch mistakes and improve style.",
                 url: "https://doc.rust-lang.org/clippy/",
-                command: "clippy-driver",
-                args: vec!["--error-format=json", "-W", "clippy::all"],
+                command: "clippy-driver".into(),
+                args: vec!["--error-format=json", "-W", "clippy::all"]
+                    .into_iter()
+                    .map(Into::into)
+                    .collect(),
                 supported_languages: vec!["rust", "rs"],
             },
         );
         Self { linters }
+    }
+
+    pub fn with_definitions(
+        definitions: &HashMap<String, crate::config::LinterDefinition>,
+    ) -> Self {
+        let mut registry = Self::new();
+        for (name, definition) in definitions {
+            if let Some(info) = registry.linters.get_mut(name) {
+                if let Some(cmd) = &definition.cmd {
+                    info.command = cmd.clone().into();
+                }
+                let base = definition
+                    .args
+                    .clone()
+                    .unwrap_or_else(|| info.args.iter().map(ToString::to_string).collect());
+                info.args = definition
+                    .prepend_args
+                    .iter()
+                    .chain(&base)
+                    .chain(&definition.append_args)
+                    .cloned()
+                    .map(Into::into)
+                    .collect();
+            }
+        }
+        registry
+    }
+
+    pub fn for_document(
+        definitions: &HashMap<String, crate::config::LinterDefinition>,
+        document_path: Option<&std::path::Path>,
+    ) -> Self {
+        let mut registry = Self::with_definitions(definitions);
+        if let Some(parent) = document_path.and_then(std::path::Path::parent) {
+            for info in registry.linters.values_mut() {
+                let command = std::path::Path::new(info.command.as_ref());
+                if command.is_relative() && command.components().count() > 1 {
+                    info.command = parent.join(command).to_string_lossy().into_owned().into();
+                }
+            }
+        }
+        registry
     }
 
     pub fn get(&self, name: &str) -> Option<&LinterInfo> {
@@ -284,7 +333,7 @@ where
     find_missing_commands(
         configured_linter_names
             .into_iter()
-            .filter_map(|name| registry.get(name).map(|info| info.command)),
+            .filter_map(|name| registry.get(name).map(|info| info.command.as_ref())),
     )
 }
 
@@ -892,5 +941,12 @@ mod tests {
             find_missing_linter_commands(["ruff", "definitely_unknown_linter"], &registry);
         // Unknown linter names are ignored here; they are handled by runner warnings.
         assert!(!missing.contains("definitely_unknown_linter"));
+    }
+    #[test]
+    fn config_preset_names_match_registry() {
+        let registry = ExternalLinterRegistry::new();
+        let mut names: Vec<_> = registry.linters.keys().map(String::as_str).collect();
+        names.sort_unstable();
+        assert_eq!(names, crate::config::LINTER_PRESET_NAMES);
     }
 }

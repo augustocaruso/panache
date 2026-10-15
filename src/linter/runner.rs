@@ -17,17 +17,11 @@ use crate::utils::collect_code_snippets;
 
 pub struct LintRunner {
     registry: RuleRegistry,
-    #[cfg(not(target_arch = "wasm32"))]
-    external_linters: ExternalLinterRegistry,
 }
 
 impl LintRunner {
     pub fn new(registry: RuleRegistry) -> Self {
-        Self {
-            registry,
-            #[cfg(not(target_arch = "wasm32"))]
-            external_linters: ExternalLinterRegistry::new(),
-        }
+        Self { registry }
     }
 
     pub fn run(&self, tree: &SyntaxNode, input: &str, config: &Config) -> Vec<Diagnostic> {
@@ -130,9 +124,10 @@ impl LintRunner {
             return diagnostics;
         }
 
+        let external_linters = ExternalLinterRegistry::with_definitions(&config.linter_definitions);
         let missing_linter_commands = find_missing_linter_commands(
             config.linters.values().map(String::as_str),
-            &self.external_linters,
+            &external_linters,
         );
         log_missing_linter_commands(&missing_linter_commands);
 
@@ -144,7 +139,7 @@ impl LintRunner {
         // order should be stable. The expensive subprocess work happens below.
         let mut jobs = Vec::new();
         for (language, linter_name) in &config.linters {
-            let Some(linter_info) = self.external_linters.get(linter_name) else {
+            let Some(linter_info) = external_linters.get(linter_name) else {
                 log::warn!(
                     "Skipping unknown external linter '{}' configured for language '{}'",
                     linter_name,
@@ -152,12 +147,11 @@ impl LintRunner {
                 );
                 continue;
             };
-            if missing_linter_commands.contains(linter_info.command) {
+            if missing_linter_commands.contains(linter_info.command.as_ref()) {
                 continue;
             }
 
-            if !self
-                .external_linters
+            if !external_linters
                 .supports_language(linter_name, language)
                 .unwrap_or(false)
             {
@@ -191,7 +185,7 @@ impl LintRunner {
         // Borrow the registry alone rather than all of `self`: `LintRunner`
         // holds non-`Sync` `dyn Rule`s, but `ExternalLinterRegistry` is
         // shareable, so this keeps the closure `Sync` for rayon.
-        let external_linters = &self.external_linters;
+        let external_linters = &external_linters;
         let run_one = |(language, linter_name, concatenated_result): (
             &str,
             &str,

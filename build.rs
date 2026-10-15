@@ -140,14 +140,14 @@ fn extract_field_list(block: &str, field: &str) -> Option<Vec<String>> {
     let marker_slice = format!("{field}: &[");
     if let Some(start) = block.find(&marker_slice) {
         let after = &block[start + marker_slice.len()..];
-        let end = after.find("],")?;
+        let end = after.find(']')?;
         return Some(extract_quoted_strings(&after[..end]));
     }
 
     let marker_vec = format!("{field}: vec![");
     let start = block.find(&marker_vec)?;
     let after = &block[start + marker_vec.len()..];
-    let end = after.find("],")?;
+    let end = after.find(']')?;
     Some(extract_quoted_strings(&after[..end]))
 }
 

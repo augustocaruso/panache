@@ -233,6 +233,19 @@ execution context and repeated occurrence agrees on its edits, even with
 `--unsafe-fixes`. Fixes spanning source files are omitted. With
 `--stdin-filename`, include resolution uses that filename and the supplied input
 replaces its on-disk contents for analysis; fixes still write only to stdout.
+For every flavor, the stdin filename also supplies the document directory for
+external linter configuration and relative command and argument paths. ESLint
+and Clippy use isolated temporary directories instead. Without a stdin filename,
+relative linter commands resolve from Panache's working directory, including
+commands for ESLint and Clippy.
+
+Panache bypasses the lint cache when a contributing external linter may read
+configuration outside Panache's tracked inputs, including Ruff's project
+configuration and ESLint's command or argument overrides. This includes a
+partial whose own Panache configuration does not enable the parent's linter.
+Arity, Fatou, and Badness can reuse cached results with `--no-config` and the
+preset executable. The unmodified ESLint preset also disables configuration
+lookup.
 
 ::: {.callout-note}
 For a code block nested in a block quote or list item, an autofix that would add

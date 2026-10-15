@@ -42,6 +42,7 @@ pub(crate) fn code_action(
     let mut diagnostics = plan.diagnostics.clone();
     #[cfg(not(target_arch = "wasm32"))]
     if let Some(batch) = snap.execution_batch_for(&uri) {
+        snap.execution_cache.invalidate_project_config(&batch);
         let results = snap.execution_cache.get_or_run(&batch, true);
         snap.db().unwind_if_revision_cancelled();
         if let Some(path) = uri.to_file_path()
@@ -52,16 +53,8 @@ pub(crate) fn code_action(
             diagnostics.extend(items.iter().cloned());
         }
     } else {
-        let registry = crate::linter::external_linters::ExternalLinterRegistry::new();
         for job in &plan.external_jobs {
-            match crate::linter::external_linters_sync::run_linter_sync(
-                &job.linter_name,
-                &job.language,
-                &job.content,
-                &text,
-                &registry,
-                Some(&job.mappings),
-            ) {
+            match crate::linter::external_linters_sync::run_linter_job_sync(job, &text) {
                 Ok(items) => diagnostics.extend(items),
                 Err(error) => log::warn!("External linter failed: {error}"),
             }

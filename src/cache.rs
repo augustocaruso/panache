@@ -219,8 +219,13 @@ impl CliCache {
         Ok(())
     }
 
-    pub fn supports_lint(&self, _cfg: &panache::Config) -> bool {
-        true
+    pub fn supports_lint(&self, cfg: &panache::Config) -> bool {
+        // These tools discover configuration outside Panache's dependency graph.
+        // Re-run them so edits to their project or inherited configs take effect.
+        // The host also checks parent execution plans after discovering a batch.
+        !cfg.linters.values().any(|name| {
+            panache::config::linter_uses_project_config(name, cfg.linter_definitions.get(name))
+        })
     }
 
     pub fn supports_format_mode(&self, _cfg: &panache::Config, _mode: FormatCacheMode) -> bool {
