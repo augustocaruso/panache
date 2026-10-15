@@ -132,7 +132,8 @@ spaces.
 
 Panache uses ATX headings (`#`, `##`, and so on), removes decorative closing
 hashes, and adds blank lines around headings. It separates attribute entries
-with a single space.
+with a single space. In Pandoc, Quarto, and R Markdown, it expands the `{-}`
+heading attribute shorthand to `{.unnumbered}`.
 
 Input
 

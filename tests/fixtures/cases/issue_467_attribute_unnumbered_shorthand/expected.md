@@ -1,12 +1,12 @@
-### 河邊道路：不規則道路門牌處置 {#hbdl -}
+### 河邊道路：不規則道路門牌處置 {#hbdl .unnumbered}
 
-### Bare shorthand {-}
+### Bare shorthand {.unnumbered}
 
-### Shorthand before a class {- .foo}
+### Shorthand before a class {.unnumbered .foo}
 
-### Shorthand among classes {.a - .b}
+### Shorthand among classes {.a .unnumbered .b}
 
-### Repeated shorthand {- -}
+### Repeated shorthand {.unnumbered .unnumbered}
 
 ### Hyphen inside an id is part of it {#id- .x}
 

@@ -1409,6 +1409,7 @@ fn process_node_recursive(
                                 {
                                     trailing_attrs = Some(super::core::normalize_attribute_text(
                                         &attr_node.text().to_string(),
+                                        false,
                                     ));
                                     let _ = children.next();
                                 }

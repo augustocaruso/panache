@@ -68,7 +68,13 @@ pub(super) fn format_heading(node: &SyntaxNode, config: &Config) -> String {
                 }
             }
             SyntaxKind::ATTRIBUTE => {
-                attributes = normalize_attribute_text(&child.text().to_string());
+                attributes = normalize_attribute_text(
+                    &child.text().to_string(),
+                    matches!(
+                        config.flavor,
+                        Flavor::Pandoc | Flavor::Quarto | Flavor::RMarkdown
+                    ),
+                );
             }
             _ => {}
         }

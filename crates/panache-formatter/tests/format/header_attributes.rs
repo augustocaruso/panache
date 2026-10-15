@@ -1,4 +1,56 @@
+use panache_formatter::config::{Config, Flavor, FormatterExtensions, ParserExtensions};
 use panache_formatter::format;
+
+fn config_for_flavor(flavor: Flavor) -> Config {
+    Config {
+        flavor,
+        parser_extensions: ParserExtensions::for_flavor(flavor),
+        formatter_extensions: FormatterExtensions::for_flavor(flavor),
+        ..Config::default()
+    }
+}
+
+#[test]
+fn heading_expands_unnumbered_shorthand_in_pandoc_flavors() {
+    let input = "# Heading {-}\n\n## Heading {.unlisted - #section}\n\nSetext {-}\n----------\n\n- # Nested {-}\n";
+    let expected = "# Heading {.unnumbered}\n\n## Heading {#section .unlisted .unnumbered}\n\n## Setext {.unnumbered}\n\n- # Nested {.unnumbered}\n";
+    for flavor in [Flavor::Pandoc, Flavor::Quarto, Flavor::RMarkdown] {
+        let config = config_for_flavor(flavor);
+        let output = format(input, Some(config.clone()), None);
+        assert_eq!(output, expected, "{flavor:?}");
+        assert_eq!(format(&output, Some(config), None), output, "{flavor:?}");
+    }
+}
+
+#[test]
+fn heading_preserves_unnumbered_spelling_in_other_flavors() {
+    let input = "# Heading {-}\n\n# Heading {.unnumbered}\n";
+    for flavor in [
+        Flavor::CommonMark,
+        Flavor::Gfm,
+        Flavor::Hugo,
+        Flavor::MultiMarkdown,
+        Flavor::Mdsvex,
+        Flavor::Myst,
+    ] {
+        let mut config = config_for_flavor(flavor);
+        assert_eq!(
+            format(input, Some(config.clone()), None),
+            input,
+            "{flavor:?}"
+        );
+        config.parser_extensions.header_attributes = true;
+        assert_eq!(format(input, Some(config), None), input, "{flavor:?}");
+    }
+}
+
+#[test]
+fn heading_shorthand_is_literal_when_attributes_are_disabled() {
+    let input = "# Heading {-}\n";
+    let mut config = config_for_flavor(Flavor::Pandoc);
+    config.parser_extensions.header_attributes = false;
+    assert_eq!(format(input, Some(config), None), input);
+}
 
 #[test]
 fn heading_with_simple_id() {

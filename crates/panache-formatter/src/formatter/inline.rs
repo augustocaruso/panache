@@ -260,7 +260,7 @@ fn format_inline_node_with_options(
             for child in node.children_with_tokens() {
                 match child {
                     NodeOrToken::Node(n) if n.kind() == SyntaxKind::ATTRIBUTE => {
-                        attributes = normalize_attribute_text(&n.text().to_string());
+                        attributes = normalize_attribute_text(&n.text().to_string(), false);
                     }
                     NodeOrToken::Token(t) => {
                         if t.kind() == SyntaxKind::INLINE_CODE_MARKER {

@@ -938,11 +938,9 @@ impl Formatter {
 /// Rewrite a Pandoc `{...}` attribute block in canonical form: id first, then
 /// classes in source order, then key/value pairs with quoted values.
 ///
-/// Components are rendered from their *source* slices rather than from derived
-/// semantics, so a bare `-` (pandoc's shorthand for `.unnumbered`) survives as
-/// `-` instead of being expanded — the shorthand is the preferred spelling in
-/// non-English documents, and expanding it would rewrite the author's source.
-pub(super) fn normalize_attribute_text(attr_text: &str) -> String {
+/// Expand bare `-` components only for headings in Pandoc-derived flavors;
+/// other dialects can treat them as literal text rather than a class.
+pub(super) fn normalize_attribute_text(attr_text: &str, expand_unnumbered: bool) -> String {
     let Some(inner) = attr_text
         .strip_prefix('{')
         .and_then(|s| s.strip_suffix('}'))
@@ -959,6 +957,7 @@ pub(super) fn normalize_attribute_text(attr_text: &str) -> String {
     for comp in &spans.components {
         match comp {
             AttrComponent::Id(r) => id = inner[r.clone()].to_string(),
+            AttrComponent::Unnumbered(_) if expand_unnumbered => classes.push(".unnumbered"),
             AttrComponent::Class(r) | AttrComponent::Unnumbered(r) => {
                 classes.push(&inner[r.clone()])
             }
