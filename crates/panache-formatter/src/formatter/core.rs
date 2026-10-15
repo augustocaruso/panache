@@ -799,7 +799,20 @@ impl Formatter {
             SyntaxKind::FOOTNOTE_DEFINITION => self.format_footnote_definition(node, indent),
 
             SyntaxKind::HTML_BLOCK | SyntaxKind::HTML_BLOCK_RAW | SyntaxKind::HTML_BLOCK_DIV => {
-                self.format_html_block(node)
+                // A list item's continuation block starts on its own line with
+                // the item's source indentation; move it to the item's
+                // formatted content column (`indent`).
+                let continues_list_item = node
+                    .parent()
+                    .is_some_and(|parent| parent.kind() == SyntaxKind::LIST_ITEM)
+                    && node
+                        .first_token()
+                        .and_then(|token| token.prev_token())
+                        .is_some_and(|prev| prev.text().ends_with('\n'));
+                let reindent = continues_list_item
+                    .then(|| (Self::container_content_offset(node), indent))
+                    .filter(|(from, to)| from != to);
+                self.format_html_block_reindented(node, reindent)
             }
             SyntaxKind::COMMENT => self.format_comment(node),
             SyntaxKind::LATEX_COMMAND => self.format_latex_command(node),

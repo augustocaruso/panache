@@ -1779,6 +1779,7 @@ impl BlockParser for HtmlBlockParser {
         lines: &StrippedLines<'_, '_>,
     ) -> Option<(BlockDetectionResult, Option<Box<dyn Any>>)> {
         let content = lines.first();
+        let detect_line = lines.first_unconditional();
         let prefix = lines.prefix();
         let line_pos = lines.pos();
         let lines = lines.raw();
@@ -1787,7 +1788,10 @@ impl BlockParser for HtmlBlockParser {
         }
 
         {
-            let bytes = content.as_bytes();
+            // Measure the indent against the innermost list item's content
+            // column: `content` keeps that item's indent for emission, which
+            // two list levels deep is already four columns.
+            let bytes = detect_line.as_bytes();
             let mut i = 0;
             while i < bytes.len() && i < 3 && bytes[i] == b' ' {
                 i += 1;
@@ -1798,7 +1802,7 @@ impl BlockParser for HtmlBlockParser {
         }
 
         let is_commonmark = ctx.config.dialect == crate::options::Dialect::CommonMark;
-        let block_type = try_parse_html_block_start(content, is_commonmark)?;
+        let block_type = try_parse_html_block_start(detect_line, is_commonmark)?;
 
         if let HtmlBlockType::BlockTag {
             tag_name,

@@ -1,0 +1,79 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..104
+  LIST@0..104
+    LIST_ITEM@0..52
+      LIST_MARKER@0..1 "-"
+      WHITESPACE@1..2 " "
+      PLAIN@2..4
+        TEXT@2..3 "a"
+        NEWLINE@3..4 "\n"
+      LIST@4..52
+        LIST_ITEM@4..52
+          WHITESPACE@4..6 "  "
+          LIST_MARKER@6..7 "-"
+          WHITESPACE@7..8 " "
+          PLAIN@8..10
+            TEXT@8..9 "b"
+            NEWLINE@9..10 "\n"
+          BLANK_LINE@10..11
+            BLANK_LINE@10..11 "\n"
+          HTML_BLOCK_DIV@11..52
+            HTML_BLOCK_TAG@11..21
+              WHITESPACE@11..15 "    "
+              TEXT@15..19 "<div"
+              TEXT@19..20 ">"
+              NEWLINE@20..21 "\n"
+            PLAIN@21..41
+              UNRESOLVED_REFERENCE@21..40
+                LINK_START@21..26
+                  LINE_PREFIX@21..25 "    "
+                  LINK_START@25..26 "["
+                LINK_TEXT@26..30
+                  TEXT@26..30 "text"
+                TEXT@30..31 "]"
+                TEXT@31..32 "["
+                LINK_REF@32..39
+                  TEXT@32..39 "missing"
+                TEXT@39..40 "]"
+              NEWLINE@40..41 "\n"
+            HTML_BLOCK_TAG@41..52
+              WHITESPACE@41..45 "    "
+              TEXT@45..51 "</div>"
+              NEWLINE@51..52 "\n"
+    BLANK_LINE@52..53
+      BLANK_LINE@52..53 "\n"
+    LIST_ITEM@53..104
+      LIST_MARKER@53..54 "-"
+      WHITESPACE@54..55 " "
+      PLAIN@55..57
+        TEXT@55..56 "c"
+        NEWLINE@56..57 "\n"
+      LIST@57..104
+        LIST_ITEM@57..104
+          WHITESPACE@57..59 "  "
+          LIST_MARKER@59..60 "-"
+          WHITESPACE@60..61 " "
+          PLAIN@61..63
+            TEXT@61..62 "d"
+            NEWLINE@62..63 "\n"
+          BLANK_LINE@63..64
+            BLANK_LINE@63..64 "\n"
+          HTML_BLOCK_DIV@64..104
+            HTML_BLOCK_TAG@64..74
+              WHITESPACE@64..68 "    "
+              TEXT@68..72 "<div"
+              TEXT@72..73 ">"
+              NEWLINE@73..74 "\n"
+            PLAIN@74..97
+              EMPHASIS@74..88
+                LINE_PREFIX@74..78 "    "
+                EMPHASIS_MARKER@78..79 "*"
+                TEXT@79..87 "emphasis"
+                EMPHASIS_MARKER@87..88 "*"
+              TEXT@88..97 " and text"
+            HTML_BLOCK_TAG@97..104
+              TEXT@97..103 "</div>"
+              NEWLINE@103..104 "\n"

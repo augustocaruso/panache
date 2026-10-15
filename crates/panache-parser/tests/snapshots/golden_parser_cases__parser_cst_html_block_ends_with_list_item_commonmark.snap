@@ -1,0 +1,69 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..82
+  LIST@0..43
+    LIST_ITEM@0..13
+      LIST_MARKER@0..1 "-"
+      WHITESPACE@1..2 " "
+      PLAIN@2..4
+        TEXT@2..3 "a"
+        NEWLINE@3..4 "\n"
+      BLANK_LINE@4..5
+        BLANK_LINE@4..5 "\n"
+      HTML_BLOCK@5..13
+        HTML_BLOCK_TAG@5..13
+          TEXT@5..12 "  <div>"
+          NEWLINE@12..13 "\n"
+    LIST_ITEM@13..39
+      LIST_MARKER@13..14 "-"
+      WHITESPACE@14..15 " "
+      PLAIN@15..17
+        TEXT@15..16 "b"
+        NEWLINE@16..17 "\n"
+      BLANK_LINE@17..18
+        BLANK_LINE@17..18 "\n"
+      HTML_BLOCK@18..39
+        HTML_BLOCK_TAG@18..33
+          TEXT@18..32 "  <!-- comment"
+          NEWLINE@32..33 "\n"
+        HTML_BLOCK_TAG@33..39
+          TEXT@33..38 "  -->"
+          NEWLINE@38..39 "\n"
+    LIST_ITEM@39..43
+      LIST_MARKER@39..40 "-"
+      WHITESPACE@40..41 " "
+      PLAIN@41..43
+        TEXT@41..42 "c"
+        NEWLINE@42..43 "\n"
+  BLANK_LINE@43..44
+    BLANK_LINE@43..44 "\n"
+  BLOCK_QUOTE@44..82
+    BLOCK_QUOTE_MARKER@44..45 ">"
+    WHITESPACE@45..46 " "
+    LIST@46..82
+      LIST_ITEM@46..69
+        LIST_MARKER@46..48 "1."
+        WHITESPACE@48..49 " "
+        PLAIN@49..56
+          TEXT@49..55 "quoted"
+          NEWLINE@55..56 "\n"
+        BLOCK_QUOTE_MARKER@56..57 ">"
+        BLANK_LINE@57..58
+          BLANK_LINE@57..58 "\n"
+        PLAIN@58..60
+          LINE_PREFIX@58..59 ">"
+          LINE_PREFIX@59..60 " "
+        HTML_BLOCK@60..69
+          HTML_BLOCK_TAG@60..69
+            TEXT@60..68 "   <div>"
+            NEWLINE@68..69 "\n"
+      BLOCK_QUOTE_MARKER@69..70 ">"
+      WHITESPACE@70..71 " "
+      LIST_ITEM@71..82
+        LIST_MARKER@71..73 "2."
+        WHITESPACE@73..74 " "
+        PLAIN@74..82
+          TEXT@74..81 "sibling"
+          NEWLINE@81..82 "\n"

@@ -6,7 +6,20 @@ use rowan::NodeOrToken;
 use super::math;
 
 impl Formatter {
-    pub(super) fn format_html_block(&mut self, node: &SyntaxNode) {
+    /// Format an HTML block, optionally moving its container indentation.
+    ///
+    /// An HTML block that continues a list item keeps the item's *source*
+    /// indentation in its text. When the formatter moves the item's content
+    /// column (normalizing `-   ` to `- `, say), `reindent = Some((from, to))`
+    /// swaps the source column `from` for the formatted column `to` on every
+    /// line; otherwise the old, deeper indent can turn the block into an
+    /// indented code block on the next parse. Lines that don't reach `from`,
+    /// and ignored regions, keep the source text.
+    pub(super) fn format_html_block_reindented(
+        &mut self,
+        node: &SyntaxNode,
+        reindent: Option<(usize, usize)>,
+    ) {
         self.process_format_directive(node);
 
         let mut text = String::new();
@@ -32,6 +45,12 @@ impl Formatter {
             }
             after_marker = false;
             text.push_str(token.text());
+        }
+        if let Some((from, to)) = reindent
+            && !self.directive_tracker.is_formatting_ignored()
+            && let Some(moved) = reindent_lines(&text, from, to)
+        {
+            text = moved;
         }
         self.output.push_str(&text);
         if !text.ends_with('\n') {
@@ -78,6 +97,41 @@ impl Formatter {
             self.ignore_region_start = Some(self.output.len());
         }
     }
+}
+
+/// Swap `from` columns of leading whitespace for `to` spaces on every
+/// non-blank line of `text`. `None` when a non-blank line doesn't reach
+/// `from` or a tab straddles it, so the caller keeps the text as is.
+fn reindent_lines(text: &str, from: usize, to: usize) -> Option<String> {
+    let mut out = String::with_capacity(text.len());
+    for line in text.split_inclusive('\n') {
+        let body = line.trim_end_matches(['\n', '\r']);
+        let newline = &line[body.len()..];
+        if body.trim().is_empty() {
+            out.push_str(line);
+            continue;
+        }
+        let mut col = 0usize;
+        let mut bytes = 0usize;
+        for b in body.bytes() {
+            if col >= from {
+                break;
+            }
+            match b {
+                b' ' => col += 1,
+                b'\t' => col = (col / 4 + 1) * 4,
+                _ => break,
+            }
+            bytes += 1;
+        }
+        if col != from {
+            return None;
+        }
+        out.push_str(&" ".repeat(to));
+        out.push_str(&body[bytes..]);
+        out.push_str(newline);
+    }
+    Some(out)
 }
 
 /// A single space after the closing colon makes valued MyST options reparse to

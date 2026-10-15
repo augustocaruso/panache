@@ -1,0 +1,91 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..152
+  LIST@0..37
+    LIST_ITEM@0..37
+      LIST_MARKER@0..1 "-"
+      WHITESPACE@1..2 " "
+      PLAIN@2..4
+        TEXT@2..3 "a"
+        NEWLINE@3..4 "\n"
+      BLANK_LINE@4..5
+        BLANK_LINE@4..5 "\n"
+      LIST@5..37
+        LIST_ITEM@5..37
+          WHITESPACE@5..7 "  "
+          LIST_MARKER@7..8 "-"
+          WHITESPACE@8..9 " "
+          PLAIN@9..11
+            TEXT@9..10 "b"
+            NEWLINE@10..11 "\n"
+          BLANK_LINE@11..12
+            BLANK_LINE@11..12 "\n"
+          HTML_BLOCK@12..37
+            HTML_BLOCK_TAG@12..29
+              TEXT@12..28 "    <!-- comment"
+              NEWLINE@28..29 "\n"
+            HTML_BLOCK_TAG@29..37
+              TEXT@29..36 "    -->"
+              NEWLINE@36..37 "\n"
+  BLANK_LINE@37..38
+    BLANK_LINE@37..38 "\n"
+  LIST@38..109
+    LIST_ITEM@38..109
+      LIST_MARKER@38..40 "1."
+      WHITESPACE@40..41 " "
+      PLAIN@41..43
+        TEXT@41..42 "a"
+        NEWLINE@42..43 "\n"
+      LIST@43..109
+        LIST_ITEM@43..109
+          WHITESPACE@43..46 "   "
+          LIST_MARKER@46..48 "1."
+          WHITESPACE@48..49 " "
+          PLAIN@49..51
+            TEXT@49..50 "b"
+            NEWLINE@50..51 "\n"
+          LIST@51..109
+            LIST_ITEM@51..109
+              WHITESPACE@51..57 "      "
+              LIST_MARKER@57..59 "1."
+              WHITESPACE@59..60 " "
+              PLAIN@60..62
+                TEXT@60..61 "c"
+                NEWLINE@61..62 "\n"
+              BLANK_LINE@62..63
+                BLANK_LINE@62..63 "\n"
+              HTML_BLOCK@63..109
+                HTML_BLOCK_TAG@63..78
+                  TEXT@63..77 "         <div>"
+                  NEWLINE@77..78 "\n"
+                HTML_BLOCK_CONTENT@78..109
+                  TEXT@78..92 "         block"
+                  NEWLINE@92..93 "\n"
+                  TEXT@93..108 "         </div>"
+                  NEWLINE@108..109 "\n"
+  BLANK_LINE@109..110
+    BLANK_LINE@109..110 "\n"
+  LIST@110..152
+    LIST_ITEM@110..152
+      LIST_MARKER@110..111 "-"
+      WHITESPACE@111..112 " "
+      PLAIN@112..114
+        TEXT@112..113 "a"
+        NEWLINE@113..114 "\n"
+      LIST@114..152
+        LIST_ITEM@114..152
+          WHITESPACE@114..116 "  "
+          LIST_MARKER@116..117 "-"
+          WHITESPACE@117..118 " "
+          PLAIN@118..120
+            TEXT@118..119 "b"
+            NEWLINE@119..120 "\n"
+          BLANK_LINE@120..121
+            BLANK_LINE@120..121 "\n"
+          CODE_BLOCK@121..152
+            CODE_CONTENT@121..152
+              WHITESPACE@121..129 "        "
+              TEXT@129..151 "<div> is indented code"
+              NEWLINE@151..152 "\n"

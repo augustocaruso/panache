@@ -1729,6 +1729,17 @@ pub(crate) fn parse_html_block_with_wrapper(
             break;
         }
 
+        // CommonMark §5.2: a non-blank line indented less than the list
+        // item's content column is not part of the item, and an HTML block
+        // takes no lazy continuation lines, so the block ends with the item.
+        if config.dialect == crate::options::Dialect::CommonMark
+            && prefix.list_content_col() > 0
+            && !inner.trim().is_empty()
+            && !prefix.resolve(line).reaches_frame()
+        {
+            break;
+        }
+
         if blank_terminated && inner.trim().is_empty() {
             break;
         }
@@ -1894,14 +1905,26 @@ pub(crate) fn parse_html_block_with_wrapper(
                 let close_marker = &close_part[..close_marker_end];
                 let close_trailing = &close_part[close_marker_end..];
 
-                emit_html_block_body_lifted(
-                    builder,
-                    &pre_content,
-                    &content_lines,
-                    body_leading,
-                    policy,
-                    config,
-                );
+                if prefix.ops().is_empty() {
+                    emit_html_block_body_lifted(
+                        builder,
+                        &pre_content,
+                        &content_lines,
+                        body_leading,
+                        policy,
+                        config,
+                    );
+                } else {
+                    emit_html_block_body_lifted_in_containers(
+                        builder,
+                        &pre_content,
+                        &content_lines,
+                        body_leading,
+                        prefix,
+                        policy,
+                        config,
+                    );
+                }
                 builder.start_node(SyntaxKind::HTML_BLOCK_TAG.into());
                 if leading_is_ws_only {
                     builder.token(SyntaxKind::WHITESPACE.into(), leading);
@@ -2018,26 +2041,30 @@ fn emit_html_block_body(
     if pre_content.is_empty() && content_lines.is_empty() {
         return;
     }
-    if lift_mode && wrapper_kind == SyntaxKind::HTML_BLOCK_DIV {
-        emit_html_block_body_lifted(
-            builder,
-            pre_content,
-            content_lines,
-            "",
-            LastParaDemote::Never,
-            config,
-        );
-        return;
-    }
-    if lift_mode && wrapper_kind == SyntaxKind::HTML_BLOCK && bq_depth == 0 {
-        emit_html_block_body_lifted(
-            builder,
-            pre_content,
-            content_lines,
-            "",
-            LastParaDemote::Never,
-            config,
-        );
+    if lift_mode
+        && (wrapper_kind == SyntaxKind::HTML_BLOCK_DIV
+            || (wrapper_kind == SyntaxKind::HTML_BLOCK && bq_depth == 0))
+    {
+        if prefix.ops().is_empty() {
+            emit_html_block_body_lifted(
+                builder,
+                pre_content,
+                content_lines,
+                "",
+                LastParaDemote::Never,
+                config,
+            );
+        } else {
+            emit_html_block_body_lifted_in_containers(
+                builder,
+                pre_content,
+                content_lines,
+                "",
+                prefix,
+                LastParaDemote::Never,
+                config,
+            );
+        }
         return;
     }
     if open_only && lift_mode && wrapper_kind == SyntaxKind::HTML_BLOCK && bq_depth > 0 {
@@ -2182,6 +2209,48 @@ fn emit_html_block_body_lifted_bq_messy(
         pre_content,
         &stripped_lines,
         leading,
+        demote_policy,
+        config,
+        &mut state,
+    )
+}
+
+/// Body-lift variant for a block inside containers (list items,
+/// blockquotes): strips each body line's container prefix, including
+/// the close line's `leading` text before the closing tag, before the
+/// recursive parse, and reinjects the prefixes when grafting. Without
+/// this the inner parse sees a nested list item's indentation and reads
+/// the body as indented code. `pre_content` (open-tag trailing bytes)
+/// has no prefix of its own.
+fn emit_html_block_body_lifted_in_containers(
+    builder: &mut GreenNodeBuilder<'static>,
+    pre_content: &str,
+    content_lines: &[&str],
+    leading: &str,
+    prefix: &ContainerPrefix,
+    demote_policy: LastParaDemote,
+    config: &ParserOptions,
+) {
+    let mut prefix_lines: Vec<ContainerPrefixLine> = Vec::new();
+    if !pre_content.is_empty() {
+        prefix_lines.push(ContainerPrefixLine::default());
+    }
+    let mut stripped_lines: Vec<&str> = Vec::with_capacity(content_lines.len());
+    for cl in content_lines {
+        let (line, inner) = prefix.split_pieces(cl);
+        prefix_lines.push(line);
+        stripped_lines.push(inner);
+    }
+    let (leading_prefix, leading_rest) = prefix.split_pieces(leading);
+    if !leading_rest.is_empty() {
+        prefix_lines.push(leading_prefix);
+    }
+    let mut state = ContainerPrefixState::new(prefix_lines);
+    emit_html_block_body_lifted_inner(
+        builder,
+        pre_content,
+        &stripped_lines,
+        leading_rest,
         demote_policy,
         config,
         &mut state,

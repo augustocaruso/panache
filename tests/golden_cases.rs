@@ -334,6 +334,7 @@ golden_test_cases!(
     blockquote_after_list_commonmark,
     list_item_ordered_paragraph_continuation_commonmark,
     list_item_blockquote_inner_list_siblings,
+    list_item_html_block_reindent_commonmark,
     list_item_blockquote_nested_list_issue_292,
     list_item_lazy_blockquote_marker,
     quoted_item_lazy_blockquote_marker,
