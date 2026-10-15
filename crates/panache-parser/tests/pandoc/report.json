@@ -3,7 +3,7 @@
   "failing": 6,
   "pandoc_version": "3.12",
   "pass_pct": 99.0,
-  "passing": 600,
+  "passing": 601,
   "passing_ids": [
     1,
     2,
@@ -604,7 +604,8 @@
     603,
     604,
     605,
-    606
+    606,
+    607
   ],
   "sections": [
     {
@@ -615,6 +616,11 @@
     {
       "fail": 0,
       "name": "citation",
+      "pass": 1
+    },
+    {
+      "fail": 0,
+      "name": "definition",
       "pass": 1
     },
     {
@@ -638,5 +644,5 @@
       "pass": 1
     }
   ],
-  "total_cases": 606
+  "total_cases": 607
 }

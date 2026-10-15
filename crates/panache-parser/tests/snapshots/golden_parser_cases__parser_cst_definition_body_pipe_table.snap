@@ -1,0 +1,47 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..59
+  DEFINITION_LIST@0..59
+    DEFINITION_ITEM@0..59
+      TERM@0..5
+        TEXT@0..4 "Term"
+        NEWLINE@4..5 "\n"
+      BLANK_LINE@5..6
+        BLANK_LINE@5..6 "\n"
+      DEFINITION@6..59
+        DEFINITION_MARKER@6..7 ":"
+        WHITESPACE@7..10 "   "
+        PLAIN@10..22
+          TEXT@10..21 "Definition."
+          NEWLINE@21..22 "\n"
+        BLANK_LINE@22..23
+          BLANK_LINE@22..23 "\n"
+        PIPE_TABLE@23..59
+          TABLE_HEADER@23..35
+            LINE_PREFIX@23..27 "    "
+            TEXT@27..28 "|"
+            WHITESPACE@28..29 " "
+            TABLE_CELL@29..30
+              TEXT@29..30 "A"
+            WHITESPACE@30..33 "   "
+            TEXT@33..34 "|"
+            NEWLINE@34..35 "\n"
+          TABLE_SEPARATOR@35..47
+            LINE_PREFIX@35..39 "    "
+            TABLE_SEP_DELIM@39..40 "|"
+            TABLE_SEP_WHITESPACE@40..41 " "
+            TABLE_SEP_DASHES@41..44 "---"
+            TABLE_SEP_WHITESPACE@44..45 " "
+            TABLE_SEP_DELIM@45..46 "|"
+            NEWLINE@46..47 "\n"
+          TABLE_ROW@47..59
+            LINE_PREFIX@47..51 "    "
+            TEXT@51..52 "|"
+            WHITESPACE@52..53 " "
+            TABLE_CELL@53..54
+              TEXT@53..54 "B"
+            WHITESPACE@54..57 "   "
+            TEXT@57..58 "|"
+            NEWLINE@58..59 "\n"

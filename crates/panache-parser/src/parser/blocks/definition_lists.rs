@@ -173,6 +173,7 @@ pub(in crate::parser) fn in_definition_list(containers: &ContainerStack) -> bool
 pub(in crate::parser) fn next_line_is_definition_marker(
     lines: &(impl LineView + ?Sized),
     pos: usize,
+    table_captions_enabled: bool,
 ) -> Option<usize> {
     let mut check_pos = pos + 1;
     let mut blank_count = 0;
@@ -200,7 +201,10 @@ pub(in crate::parser) fn next_line_is_definition_marker(
             }
         };
         if let Some((marker, ..)) = found {
-            if marker == ':' && is_caption_followed_by_table(lines, check_pos) {
+            if marker == ':'
+                && table_captions_enabled
+                && is_caption_followed_by_table(lines, check_pos)
+            {
                 return None;
             }
             return Some(blank_count);
@@ -268,7 +272,7 @@ mod tests {
     }
 
     #[test]
-    fn next_line_marker_ignores_colon_table_caption() {
+    fn next_line_marker_respects_table_captions() {
         let lines = [
             "Here's a table with a reference:",
             "",
@@ -279,7 +283,11 @@ mod tests {
             "| 1   | 2   | 3   |",
         ];
         assert!(is_caption_followed_by_table(&lines[..], 2));
-        assert_eq!(next_line_is_definition_marker(&lines[..], 0), None);
+        assert_eq!(next_line_is_definition_marker(&lines[..], 0, true), None);
+        assert_eq!(
+            next_line_is_definition_marker(&lines[..], 0, false),
+            Some(1)
+        );
     }
 
     /// The caption probe must stay inside the container the caption sits in.

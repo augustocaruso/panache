@@ -934,3 +934,7 @@
 604
 605
 606
+
+# A loose definition keeps its content-indented pipe table instead of
+# losing its marker to caption lookahead (issue #576).
+607

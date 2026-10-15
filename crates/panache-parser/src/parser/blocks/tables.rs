@@ -606,7 +606,9 @@ fn table_grid_starts_at(lines: &(impl LineView + ?Sized), pos: usize) -> bool {
     {
         let next_line = lines.line(pos + 1);
         if try_parse_table_separator(next_line).is_some()
-            || try_parse_pipe_separator(next_line).is_some()
+            || (within_nonindent_spaces(line)
+                && within_nonindent_spaces(next_line)
+                && try_parse_pipe_separator(next_line).is_some())
         {
             return true;
         }
@@ -1479,12 +1481,13 @@ pub(crate) fn try_parse_pipe_table(
         return None;
     }
 
-    if !window.strip_at(start_pos).contains('|') && !is_caption_followed_by_table(window, start_pos)
-    {
+    let starts_with_caption =
+        config.extensions.table_captions && is_caption_followed_by_table(window, start_pos);
+    if !window.strip_at(start_pos).contains('|') && !starts_with_caption {
         return None;
     }
 
-    let (actual_start, caption_before) = if is_caption_followed_by_table(window, start_pos) {
+    let (actual_start, caption_before) = if starts_with_caption {
         let (cap_start, cap_end) = caption_range_starting_at(window, start_pos)?;
         let mut pos = cap_end;
         while pos < window.line_count() && window.line(pos).trim().is_empty() {
@@ -1534,10 +1537,15 @@ pub(crate) fn try_parse_pipe_table(
         end_pos += 1;
     }
 
-    let caption_before = caption_before
-        .or_else(|| find_caption_before_table(window, actual_start, window.dispatch_pos()));
+    let caption_before = caption_before.or_else(|| {
+        config
+            .extensions
+            .table_captions
+            .then(|| find_caption_before_table(window, actual_start, window.dispatch_pos()))
+            .flatten()
+    });
 
-    let caption_after = if caption_before.is_some() {
+    let caption_after = if !config.extensions.table_captions || caption_before.is_some() {
         None
     } else {
         find_caption_after_table(window, end_pos)
@@ -1858,6 +1866,8 @@ mod tests {
         assert!(!table_grid_starts_at(&["# Heading"][..], 0));
         assert!(!table_grid_starts_at(&["```", "code", "```"][..], 0)); // code fence
         assert!(!table_grid_starts_at(&["only one line"][..], 1)); // out of range
+        assert!(!table_grid_starts_at(&["    | A |", "    | --- |"][..], 0));
+        assert!(!table_grid_starts_at(&["| A |", "    | --- |"][..], 0));
     }
 
     /// The cheap caption lookahead must agree with what the full parser does:

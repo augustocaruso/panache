@@ -1,0 +1,40 @@
+[ DefinitionList
+    [ ( [ Str "Term" ]
+      , [ [ Para [ Str "Definition." ]
+          , Table
+              ( "" , [] , [] )
+              (Caption Nothing [])
+              [ ( AlignDefault , ColWidthDefault ) ]
+              (TableHead
+                 ( "" , [] , [] )
+                 [ Row
+                     ( "" , [] , [] )
+                     [ Cell
+                         ( "" , [] , [] )
+                         AlignDefault
+                         (RowSpan 1)
+                         (ColSpan 1)
+                         [ Plain [ Str "A" ] ]
+                     ]
+                 ])
+              [ TableBody
+                  ( "" , [] , [] )
+                  (RowHeadColumns 0)
+                  []
+                  [ Row
+                      ( "" , [] , [] )
+                      [ Cell
+                          ( "" , [] , [] )
+                          AlignDefault
+                          (RowSpan 1)
+                          (ColSpan 1)
+                          [ Plain [ Str "B" ] ]
+                      ]
+                  ]
+              ]
+              (TableFoot ( "" , [] , [] ) [])
+          ]
+        ]
+      )
+    ]
+]

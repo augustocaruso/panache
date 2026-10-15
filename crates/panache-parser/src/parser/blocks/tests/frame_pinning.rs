@@ -488,7 +488,7 @@ fn definition_lookahead_sees_marker_behind_straddling_tab() {
     let prefix = ContainerPrefix::from_ops(&[StripOp::ListAdvance(2)], true);
     let raw = ["- a", "\t: def"];
     let lines = StrippedLines::new(&raw, 0, &prefix);
-    assert_eq!(next_line_is_definition_marker(&lines, 0), Some(0));
+    assert_eq!(next_line_is_definition_marker(&lines, 0, true), Some(0));
 }
 
 fn assert_lossless(input: &str) {

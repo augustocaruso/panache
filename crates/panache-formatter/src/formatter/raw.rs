@@ -8,8 +8,8 @@ use super::math;
 impl Formatter {
     /// Format an HTML block, optionally moving its container indentation.
     ///
-    /// An HTML block that continues a list item keeps the item's *source*
-    /// indentation in its text. When the formatter moves the item's content
+    /// An HTML block that continues a list item or definition keeps its source
+    /// indentation in its text. When the formatter moves the container's content
     /// column (normalizing `-   ` to `- `, say), `reindent = Some((from, to))`
     /// swaps the source column `from` for the formatted column `to` on body
     /// lines. The first line skips this adjustment when it follows the list

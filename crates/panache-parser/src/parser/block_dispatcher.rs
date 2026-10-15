@@ -928,7 +928,11 @@ impl BlockParser for DefinitionListParser {
 
         if !ctx.paragraph_open
             && !ctx.list_item_content_open
-            && let Some(blank_count) = next_line_is_definition_marker(&stripped, line_pos)
+            && let Some(blank_count) = next_line_is_definition_marker(
+                &stripped,
+                line_pos,
+                ctx.config.extensions.table_captions,
+            )
             && !content.trim().is_empty()
         {
             return Some((

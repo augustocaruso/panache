@@ -1,6 +1,8 @@
 use crate::config::{Config, HorizontalRuleStyle, WrapMode};
 use crate::directives::DirectiveTracker;
-use crate::syntax::{AstNode, ExampleListMarker, SyntaxKind, SyntaxNode, TomlMetadata};
+use crate::syntax::{
+    AstNode, Definition, ExampleListMarker, ListItem, SyntaxKind, SyntaxNode, TomlMetadata,
+};
 use panache_parser::parser::blocks::definition_lists::try_parse_definition_marker;
 use panache_parser::parser::blocks::headings::try_parse_atx_heading;
 use panache_parser::parser::blocks::horizontal_rules::try_parse_horizontal_rule;
@@ -825,17 +827,15 @@ impl Formatter {
             SyntaxKind::FOOTNOTE_DEFINITION => self.format_footnote_definition(node, indent),
 
             SyntaxKind::HTML_BLOCK | SyntaxKind::HTML_BLOCK_RAW | SyntaxKind::HTML_BLOCK_DIV => {
-                // A list item's continuation block starts on its own line with
-                // the item's source indentation; move it to the item's
-                // formatted content column (`indent`).
-                let continues_list_item = node
-                    .parent()
-                    .is_some_and(|parent| parent.kind() == SyntaxKind::LIST_ITEM)
-                    && node
-                        .first_token()
-                        .and_then(|token| token.prev_token())
-                        .is_some_and(|prev| prev.text().ends_with('\n'));
-                let reindent = continues_list_item
+                // Continuation HTML must move with its container's content
+                // column so it cannot detach the blocks that follow it.
+                let continues_container = node.parent().is_some_and(|parent| {
+                    ListItem::can_cast(parent.kind()) || Definition::can_cast(parent.kind())
+                }) && node
+                    .first_token()
+                    .and_then(|token| token.prev_token())
+                    .is_some_and(|prev| prev.text().ends_with('\n'));
+                let reindent = continues_container
                     .then(|| (self.container_content_offset(node), indent))
                     .filter(|(from, to)| from != to);
                 self.format_html_block_reindented(node, reindent)

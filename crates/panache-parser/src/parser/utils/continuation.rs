@@ -69,7 +69,12 @@ impl<'a, 'cfg> ContinuationPolicy<'a, 'cfg> {
         let next_line_opens_definition = !is_blank_line(next_inner) && {
             let prefix = ContainerPrefix::from_stack(&containers.stack, false, self.config);
             let window = StrippedLines::new(lines, next_line_pos, &prefix);
-            definition_lists::next_line_is_definition_marker(&window, next_line_pos).is_some()
+            definition_lists::next_line_is_definition_marker(
+                &window,
+                next_line_pos,
+                self.config.extensions.table_captions,
+            )
+            .is_some()
         };
         let next_is_definition_term_below = |level: usize| -> bool {
             next_line_opens_definition

@@ -145,7 +145,12 @@ impl<'a> Parser<'a> {
         }
         let prefix = ContainerPrefix::from_stack(&self.containers.stack, false, self.config);
         let stripped = StrippedLines::new(&self.lines, self.pos, &prefix);
-        if definition_lists::next_line_is_definition_marker(&stripped, self.pos) != Some(0) {
+        if definition_lists::next_line_is_definition_marker(
+            &stripped,
+            self.pos,
+            self.config.extensions.table_captions,
+        ) != Some(0)
+        {
             return false;
         }
         let marker_line =

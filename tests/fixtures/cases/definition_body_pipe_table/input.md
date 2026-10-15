@@ -1,0 +1,6 @@
+Term
+: Definition.
+
+  | A |
+  | - |
+  | B |

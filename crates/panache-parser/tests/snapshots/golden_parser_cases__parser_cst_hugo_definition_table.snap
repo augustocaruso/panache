@@ -1,0 +1,92 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..139
+  DEFINITION_LIST@0..93
+    DEFINITION_ITEM@0..59
+      TERM@0..5
+        TEXT@0..4 "Term"
+        NEWLINE@4..5 "\n"
+      BLANK_LINE@5..6
+        BLANK_LINE@5..6 "\n"
+      DEFINITION@6..59
+        DEFINITION_MARKER@6..7 ":"
+        WHITESPACE@7..10 "   "
+        PLAIN@10..22
+          TEXT@10..21 "Definition."
+          NEWLINE@21..22 "\n"
+        BLANK_LINE@22..23
+          BLANK_LINE@22..23 "\n"
+        PIPE_TABLE@23..59
+          TABLE_HEADER@23..35
+            LINE_PREFIX@23..27 "    "
+            TEXT@27..28 "|"
+            WHITESPACE@28..29 " "
+            TABLE_CELL@29..30
+              TEXT@29..30 "A"
+            WHITESPACE@30..33 "   "
+            TEXT@33..34 "|"
+            NEWLINE@34..35 "\n"
+          TABLE_SEPARATOR@35..47
+            LINE_PREFIX@35..39 "    "
+            TABLE_SEP_DELIM@39..40 "|"
+            TABLE_SEP_WHITESPACE@40..41 " "
+            TABLE_SEP_DASHES@41..44 "---"
+            TABLE_SEP_WHITESPACE@44..45 " "
+            TABLE_SEP_DELIM@45..46 "|"
+            NEWLINE@46..47 "\n"
+          TABLE_ROW@47..59
+            LINE_PREFIX@47..51 "    "
+            TEXT@51..52 "|"
+            WHITESPACE@52..53 " "
+            TABLE_CELL@53..54
+              TEXT@53..54 "B"
+            WHITESPACE@54..57 "   "
+            TEXT@57..58 "|"
+            NEWLINE@58..59 "\n"
+    BLANK_LINE@59..60
+      BLANK_LINE@59..60 "\n"
+    DEFINITION_ITEM@60..93
+      TERM@60..76
+        TEXT@60..75 "Following table"
+        NEWLINE@75..76 "\n"
+      BLANK_LINE@76..77
+        BLANK_LINE@76..77 "\n"
+      DEFINITION@77..93
+        DEFINITION_MARKER@77..78 ":"
+        WHITESPACE@78..81 "   "
+        PLAIN@81..93
+          TEXT@81..92 "Definition."
+          NEWLINE@92..93 "\n"
+  BLANK_LINE@93..94
+    BLANK_LINE@93..94 "\n"
+  PIPE_TABLE@94..118
+    TABLE_HEADER@94..102
+      TEXT@94..95 "|"
+      WHITESPACE@95..96 " "
+      TABLE_CELL@96..97
+        TEXT@96..97 "C"
+      WHITESPACE@97..100 "   "
+      TEXT@100..101 "|"
+      NEWLINE@101..102 "\n"
+    TABLE_SEPARATOR@102..110
+      TABLE_SEP_DELIM@102..103 "|"
+      TABLE_SEP_WHITESPACE@103..104 " "
+      TABLE_SEP_DASHES@104..107 "---"
+      TABLE_SEP_WHITESPACE@107..108 " "
+      TABLE_SEP_DELIM@108..109 "|"
+      NEWLINE@109..110 "\n"
+    TABLE_ROW@110..118
+      TEXT@110..111 "|"
+      WHITESPACE@111..112 " "
+      TABLE_CELL@112..113
+        TEXT@112..113 "D"
+      WHITESPACE@113..116 "   "
+      TEXT@116..117 "|"
+      NEWLINE@117..118 "\n"
+  BLANK_LINE@118..119
+    BLANK_LINE@118..119 "\n"
+  PARAGRAPH@119..139
+    TEXT@119..138 ":   Following text."
+    NEWLINE@138..139 "\n"
