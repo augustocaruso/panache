@@ -12,10 +12,17 @@ info), regardless of whether it ships with an auto-fix.
 
 - Built-in lint rules only. External-linter integrations (black, flake8, etc.)
   live in `src/linter/external_linters*` and are out of scope here.
-- Rule logic walks the parser CST/AST. Do **not** add parser- or formatter-side
-  workarounds. If the rule needs information the CST does not expose, surface it
-  through a typed wrapper in `crates/panache-parser/src/syntax/` rather than
-  re-parsing inside the rule.
+- Rule logic walks the parser CST/AST. Preserve correct parsing and formatting
+  behavior when adding diagnostics. Parser support refactors are appropriate
+  when they expose information the rule needs through a typed wrapper in
+  `crates/panache-parser/src/syntax/` or the existing diagnostic channel. Keep
+  rule codes, severity, selection, and fixes in the linter.
+- Malformed syntax may correctly fall back to `TEXT`, so a rule that only visits
+  recognized construct nodes can miss it. If the syntax already has a parser
+  recognizer, reuse it through a typed syntax helper instead of adding another
+  scanner in the rule. Account for token boundaries, multiline constructs, and
+  container prefixes when returning host-aligned ranges, and preserve literal
+  and escaped contexts.
 - LSP and CLI consume diagnostics through the same `LintRunner`. The rule must
   not emit CLI-formatted strings; it produces `Diagnostic` values and the
   shared rendering paths handle presentation.
@@ -59,9 +66,8 @@ info), regardless of whether it ships with an auto-fix.
    - Severity: `Warning` is the default; `Error` only for genuinely broken
      output; `Info` is reserved. A rule with several codes can mix severities;
      declare each in `RuleMeta::codes`.
-   - `requires`: the `Requirement` variant the rule needs
-     (`Always`, `Footnotes`, `Citations`, `Emoji`, `FencedDivs`,
-     `FencedCodeAttributes`, `HeaderAttributes`, `TexMath`, or `ChunkFlavor`).
+   - `requires`: the `Requirement` variant matching the syntax or flavor the
+     rule needs.
      Add a new variant (and its `is_satisfied`/doc-token mapping in
      `tests/linter_rules_docs.rs`) only if no existing one fits.
    - `default_on`: `true` for rules that run unless disabled; `false` for opt-in
@@ -85,6 +91,8 @@ info), regardless of whether it ships with an auto-fix.
      by `d.code == "<rule-name>"`.
    Cover the positive case, the negative ("should not flag") case, and any
    edge case the rule explicitly handles.
+   When adding parser support, test it independently and confirm that existing
+   CST snapshots remain unchanged if the refactor preserves parsing behavior.
 
 4. **Implement the rule** in `src/linter/rules/<rule_name>.rs`:
    - Rules do **not** walk the tree themselves. The runner does one shared
