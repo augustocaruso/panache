@@ -26,6 +26,7 @@ pub mod heading_eaten_attrs;
 pub mod heading_hierarchy;
 pub mod heading_strip_comments_residue;
 pub mod html_entities;
+pub mod html_unclosed_attribute;
 pub mod inline_math_line_break;
 pub mod link_text_is_url;
 pub mod malformed_citation;
@@ -70,6 +71,8 @@ pub enum Requirement {
     FencedDivs,
     /// Needs `extensions.emoji`.
     Emoji,
+    /// Needs `extensions.raw-html`.
+    RawHtml,
     /// Needs any `tex-math-*` extension (dollars, gfm, single/double backslash).
     TexMath,
     /// Needs `extensions.tex-math-dollars`.
@@ -99,6 +102,7 @@ impl Requirement {
             Requirement::FencedCodeAttributes => ext.fenced_code_attributes,
             Requirement::FencedDivs => ext.fenced_divs,
             Requirement::Emoji => ext.emoji,
+            Requirement::RawHtml => ext.raw_html,
             Requirement::TexMath => {
                 ext.tex_math_dollars
                     || ext.tex_math_gfm

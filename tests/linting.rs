@@ -806,6 +806,65 @@ fn test_unused_definitions_resolved_across_project_files() {
 }
 
 #[test]
+fn html_unclosed_attribute_reports_precise_warnings() {
+    let input = include_str!("linting/html_unclosed_attribute.md");
+    let diagnostics = lint_file("html_unclosed_attribute.md");
+    let issues: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.code == "html-unclosed-attribute")
+        .collect();
+    assert_eq!(issues.len(), 4, "{diagnostics:#?}");
+    for (diagnostic, (line, attribute, quote)) in issues.iter().zip([
+        (1, "id", "\""),
+        (4, "title", "'"),
+        (6, "alt", "\""),
+        (8, "data-label", "'"),
+    ]) {
+        assert_eq!(diagnostic.location.line, line);
+        assert_eq!(&input[diagnostic.location.range], quote);
+        assert!(diagnostic.message.contains(attribute));
+        assert_eq!(diagnostic.severity, panache::linter::Severity::Warning);
+        assert!(diagnostic.fix.is_none());
+    }
+}
+
+#[test]
+fn html_unclosed_attribute_can_be_disabled() {
+    let diagnostics = lint_file_with_config(
+        "html_unclosed_attribute.md",
+        "[lint]\nignore = [\"html-unclosed-attribute\"]\n",
+    );
+    assert!(
+        diagnostics
+            .iter()
+            .all(|d| d.code != "html-unclosed-attribute")
+    );
+}
+
+#[test]
+fn html_unclosed_attribute_requires_raw_html_even_when_selected() {
+    let diagnostics = lint_file_with_config(
+        "html_unclosed_attribute.md",
+        "[extensions]\nraw-html = false\n[lint]\nselect = [\"html-unclosed-attribute\"]\n",
+    );
+    assert!(diagnostics.is_empty(), "{diagnostics:#?}");
+}
+
+#[test]
+fn html_unclosed_attribute_respects_ignore_directives() {
+    let input = "<!-- panache-ignore-start -->\n<a id=\"ignored>\n<!-- panache-ignore-end -->\n\n<a id=\"visible>\n";
+    let config = Config::default();
+    let tree = panache::parse(input, Some(config.clone()));
+    let diagnostics = lint(&tree, input, &config);
+    let issues: Vec<_> = diagnostics
+        .iter()
+        .filter(|d| d.code == "html-unclosed-attribute")
+        .collect();
+    assert_eq!(issues.len(), 1, "{diagnostics:#?}");
+    assert_eq!(issues[0].location.line, 5);
+}
+
+#[test]
 fn test_html_entities_default_on() {
     let diagnostics = lint_file("html_entities.md");
     let issues: Vec<_> = diagnostics

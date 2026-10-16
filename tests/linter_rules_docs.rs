@@ -93,6 +93,7 @@ fn requirement_token(req: Requirement) -> Option<&'static str> {
         Requirement::FencedCodeAttributes => Some("fenced-code-attributes"),
         Requirement::FencedDivs => Some("fenced-divs"),
         Requirement::Emoji => Some("emoji"),
+        Requirement::RawHtml => Some("raw-html"),
         Requirement::TexMath => Some("tex-math"),
         Requirement::TexMathDollars => Some("tex-math-dollars"),
         Requirement::ChunkFlavor => Some("chunk"),

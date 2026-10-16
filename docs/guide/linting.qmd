@@ -137,6 +137,12 @@ content. See the [Lint Rules reference](../reference/linter-rules.qmd) for the
 complete catalog, including each rule's diagnostic codes, severity, auto-fix
 status, and configuration requirements.
 
+The
+[`html-unclosed-attribute`](../reference/linter-rules.qmd#html-unclosed-attribute)
+rule warns about missing closing quotes in HTML attributes, including tags that
+the Markdown parser treats as ordinary text. It runs when raw HTML is enabled
+and highlights the opening quote. The author chooses where to close the value.
+
 ## External Linters
 
 Panache can integrate with external code linters to check code blocks within

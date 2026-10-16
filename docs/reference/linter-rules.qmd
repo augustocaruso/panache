@@ -1261,6 +1261,53 @@ warning[html-entities]: HTML entity '&numero' is missing a trailing ';'
   = help: write '&numero;' to encode the character
 ```
 
+### `html-unclosed-attribute` {#html-unclosed-attribute}
+
+Detects quoted HTML attribute values that have no matching closing quote.
+
+Severity
+:   Warning
+
+Auto-fix
+:   No
+
+Diagnostic codes
+:   [`html-unclosed-attribute`](#html-unclosed-attribute)
+
+Requirements
+:   `extensions.raw-html = true`.
+
+Description
+
+:   A missing quote can make an intended HTML tag become ordinary Markdown text.
+    For example, Pandoc escapes the opening tag in `<a id="goal></a>` while
+    preserving the closing `</a>` as raw HTML. This rule highlights the opening
+    quote and names the affected attribute.
+
+    The rule checks HTML-like prose and opening tags of HTML blocks. It accepts
+    valid multiline attribute values, quoted `>` characters, unquoted values,
+    boolean attributes, and custom elements. Code, math, metadata, comments, escaped
+    opening brackets, and opaque HTML block bodies are excluded. Explicit `{=html}`
+    code spans and fences are also excluded.
+
+    This is a focused source check for unterminated quotes, rather than full HTML
+    validation. No auto-fix is offered because the intended end of the attribute
+    value is ambiguous.
+
+**Example violation:**
+
+```markdown
+<a id="goal></a>
+```
+
+**Diagnostic:**
+
+```
+warning[html-unclosed-attribute]: Unclosed quoted value for HTML attribute 'id'
+ --> document.qmd:1:7
+  = help: add the matching closing quote at the intended end of the value
+```
+
 ### `link-text-is-url` {#link-text-is-url}
 
 Detects inline links whose visible text is identical to the destination URL
