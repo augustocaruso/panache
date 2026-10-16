@@ -1,0 +1,31 @@
+---
+source: crates/panache-parser/tests/golden_parser_cases.rs
+expression: cst_output
+---
+DOCUMENT@0..74
+  PARAGRAPH@0..17
+    TEXT@0..12 "<a id=\"goal>"
+    INLINE_HTML@12..16
+      INLINE_HTML_CONTENT@12..16 "</a>"
+    NEWLINE@16..17 "\n"
+  BLANK_LINE@17..18
+    BLANK_LINE@17..18 "\n"
+  BLOCK_QUOTE@18..44
+    BLOCK_QUOTE_MARKER@18..19 ">"
+    WHITESPACE@19..20 " "
+    PARAGRAPH@20..44
+      TEXT@20..22 "<a"
+      NEWLINE@22..23 "\n"
+      LINE_PREFIX@23..24 ">"
+      LINE_PREFIX@24..25 " "
+      TEXT@25..43 "title='unfinished>"
+      NEWLINE@43..44 "\n"
+  BLANK_LINE@44..45
+    BLANK_LINE@44..45 "\n"
+  LIST@45..74
+    LIST_ITEM@45..74
+      LIST_MARKER@45..46 "-"
+      WHITESPACE@46..47 " "
+      PLAIN@47..74
+        TEXT@47..73 "<a data-label=\"unfini ..."
+        NEWLINE@73..74 "\n"

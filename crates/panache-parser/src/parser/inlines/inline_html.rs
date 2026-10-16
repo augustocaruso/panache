@@ -29,11 +29,18 @@ use crate::syntax::SyntaxKind;
 /// HTML — the bytes fall through to plain text. CommonMark dialect
 /// recognizes them per CommonMark §6.6.
 pub fn try_parse_inline_html(text: &str, dialect: Dialect) -> Option<usize> {
+    inspect_inline_html(text, dialect).ok().flatten()
+}
+
+pub(crate) fn inspect_inline_html(
+    text: &str,
+    dialect: Dialect,
+) -> Result<Option<usize>, UnclosedAttribute> {
     if !text.starts_with('<') {
-        return None;
+        return Ok(None);
     }
     let cdata_decl_allowed = dialect == Dialect::CommonMark;
-    parse_html_comment(text)
+    let len = parse_html_comment(text)
         .or_else(|| {
             if cdata_decl_allowed {
                 parse_cdata(text)
@@ -49,22 +56,25 @@ pub fn try_parse_inline_html(text: &str, dialect: Dialect) -> Option<usize> {
             }
         })
         .or_else(|| parse_processing_instruction(text, dialect))
-        .or_else(|| parse_close_tag(text))
-        .or_else(|| {
-            let len = parse_open_tag(text)?;
-            if dialect == Dialect::Pandoc {
-                let name_end = 1 + text.as_bytes()[1..]
-                    .iter()
-                    .take_while(|b| b.is_ascii_alphanumeric() || **b == b'-')
-                    .count();
-                // A rejected native opener must stay Markdown text rather than
-                // becoming opaque raw HTML in the fallback recognizer.
-                if !pandoc_html_attribute_names_valid(&text[name_end..len - 1]) {
-                    return None;
-                }
-            }
-            Some(len)
-        })
+        .or_else(|| parse_close_tag(text));
+    if len.is_some() {
+        return Ok(len);
+    }
+    let Some(len) = inspect_open_tag(text)? else {
+        return Ok(None);
+    };
+    if dialect == Dialect::Pandoc {
+        let name_end = 1 + text.as_bytes()[1..]
+            .iter()
+            .take_while(|b| b.is_ascii_alphanumeric() || **b == b'-')
+            .count();
+        // A rejected native opener must stay Markdown text rather than
+        // becoming opaque raw HTML in the fallback recognizer.
+        if !pandoc_html_attribute_names_valid(&text[name_end..len - 1]) {
+            return Ok(None);
+        }
+    }
+    Ok(Some(len))
 }
 
 /// Emit a single `INLINE_HTML` node holding the verbatim span.
@@ -151,19 +161,30 @@ pub(crate) fn parse_close_tag(text: &str) -> Option<usize> {
 }
 
 pub(crate) fn parse_open_tag(text: &str) -> Option<usize> {
+    inspect_open_tag(text).ok().flatten()
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct UnclosedAttribute {
+    pub attribute: std::ops::Range<usize>,
+    pub quote: usize,
+}
+
+/// Retain a failed quote match without changing the recognizer's text fallback.
+pub(crate) fn inspect_open_tag(text: &str) -> Result<Option<usize>, UnclosedAttribute> {
     let bytes = text.as_bytes();
     if !text.starts_with('<') {
-        return None;
+        return Ok(None);
     }
     let mut i = 1;
     if i >= bytes.len() || !bytes[i].is_ascii_alphabetic() {
-        return None;
+        return Ok(None);
     }
     i += 1;
     while i < bytes.len() && (bytes[i].is_ascii_alphanumeric() || bytes[i] == b'-') {
         i += 1;
     }
-    while let Some(after) = parse_attribute(bytes, i) {
+    while let Some(after) = parse_attribute(bytes, i)? {
         i = after;
     }
     i = skip_ws_with_optional_lf(bytes, i);
@@ -171,41 +192,52 @@ pub(crate) fn parse_open_tag(text: &str) -> Option<usize> {
         i += 1;
     }
     if bytes.get(i) == Some(&b'>') {
-        Some(i + 1)
+        Ok(Some(i + 1))
     } else {
-        None
+        Ok(None)
     }
 }
 
-fn parse_attribute(bytes: &[u8], start: usize) -> Option<usize> {
-    let after_ws = skip_ws_required_with_optional_lf(bytes, start)?;
+fn parse_attribute(bytes: &[u8], start: usize) -> Result<Option<usize>, UnclosedAttribute> {
+    let Some(after_ws) = skip_ws_required_with_optional_lf(bytes, start) else {
+        return Ok(None);
+    };
     let mut i = after_ws;
-    let first = *bytes.get(i)?;
+    let Some(&first) = bytes.get(i) else {
+        return Ok(None);
+    };
     if !is_attr_name_start(first) {
-        return None;
+        return Ok(None);
     }
     i += 1;
     while i < bytes.len() && is_attr_name_cont(bytes[i]) {
         i += 1;
     }
-    if let Some(after_value) = parse_attr_value_spec(bytes, i) {
+    if let Some(after_value) =
+        parse_attr_value_spec(bytes, i).map_err(|quote| UnclosedAttribute {
+            attribute: after_ws..i,
+            quote,
+        })?
+    {
         i = after_value;
     }
-    Some(i)
+    Ok(Some(i))
 }
 
-fn parse_attr_value_spec(bytes: &[u8], start: usize) -> Option<usize> {
+fn parse_attr_value_spec(bytes: &[u8], start: usize) -> Result<Option<usize>, usize> {
     let i_after_ws1 = skip_ws_with_optional_lf(bytes, start);
     if bytes.get(i_after_ws1) != Some(&b'=') {
-        return None;
+        return Ok(None);
     }
     let mut i = i_after_ws1 + 1;
     i = skip_ws_with_optional_lf(bytes, i);
     parse_attr_value(bytes, i)
 }
 
-fn parse_attr_value(bytes: &[u8], start: usize) -> Option<usize> {
-    let q = *bytes.get(start)?;
+fn parse_attr_value(bytes: &[u8], start: usize) -> Result<Option<usize>, usize> {
+    let Some(&q) = bytes.get(start) else {
+        return Ok(None);
+    };
     match q {
         b'"' | b'\'' => {
             let mut j = start + 1;
@@ -213,9 +245,9 @@ fn parse_attr_value(bytes: &[u8], start: usize) -> Option<usize> {
                 j += 1;
             }
             if j >= bytes.len() {
-                return None;
+                return Err(start);
             }
-            Some(j + 1)
+            Ok(Some(j + 1))
         }
         _ => {
             let mut j = start;
@@ -229,7 +261,7 @@ fn parse_attr_value(bytes: &[u8], start: usize) -> Option<usize> {
                 }
                 j += 1;
             }
-            if j == start { None } else { Some(j) }
+            Ok((j != start).then_some(j))
         }
     }
 }
@@ -279,6 +311,36 @@ fn skip_ws_required_with_optional_lf(bytes: &[u8], start: usize) -> Option<usize
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn unclosed_attribute_quote_retains_its_name_and_offset() {
+        for (input, name, quote) in [
+            ("<a id=\"goal></a>", "id", 6),
+            ("<a title = 'goal>", "title", 11),
+            ("<a hidden id=\"goal", "id", 13),
+        ] {
+            let error = inspect_open_tag(input).unwrap_err();
+            assert_eq!(&input[error.attribute], name);
+            assert_eq!(error.quote, quote);
+            no_match(input);
+        }
+    }
+
+    #[test]
+    fn attribute_inspection_accepts_quoted_delimiters_and_line_breaks() {
+        for input in [
+            "<a title=\"a > b\">",
+            "<a title='a \"quote\"'>",
+            "<a title=\"one\ntwo\">",
+            "<a title=\"one\r\ntwo\">",
+            "<my-element data-key=\"value\" disabled>",
+        ] {
+            assert_eq!(inspect_open_tag(input), Ok(Some(input.len())));
+        }
+        for input in ["a < b", "<https://example.org>", "<a href=>", "</a>"] {
+            assert_eq!(inspect_open_tag(input), Ok(None));
+        }
+    }
 
     #[test]
     fn pandoc_raw_openers_reject_invalid_attribute_names() {

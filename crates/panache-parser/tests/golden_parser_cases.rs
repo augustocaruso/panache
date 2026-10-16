@@ -349,6 +349,8 @@ macro_rules! golden_test_cases {
 }
 
 golden_test_cases!(
+    html_unclosed_attribute_quote_pandoc,
+    html_unclosed_attribute_quote_commonmark,
     html_inline_span_matching_nested_rejected_pandoc,
     html_inline_span_matching_nested_rejected_commonmark,
     html_inline_span_matching_nested_rejected_names_pandoc,

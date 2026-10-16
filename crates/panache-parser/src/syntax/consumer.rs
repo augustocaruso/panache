@@ -336,6 +336,11 @@ impl InlineNode {
 pub struct TextSegment(SyntaxToken);
 
 impl TextSegment {
+    /// Inspect HTML-like prose without changing its Markdown interpretation.
+    pub fn html_attribute_diagnostics(&self) -> Vec<super::HtmlAttributeDiagnostic> {
+        super::html::text_html_attribute_diagnostics(&self.0)
+    }
+
     pub fn syntax_kind(&self) -> SyntaxKind {
         self.0.kind()
     }
