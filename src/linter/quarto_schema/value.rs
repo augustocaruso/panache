@@ -28,8 +28,9 @@ use super::interp::{MapEntry, ScalarType, SchemaValue, ValueKind};
 pub enum DynamicTags {
     /// Validate tagged scalars as ordinary literals (metadata and Jupyter cells).
     Literal,
-    /// Model `!expr` and `!r` scalars as opaque `ValueKind::Expr` runtime results,
-    /// bypassing static type and enum checks without evaluating R.
+    /// Model `!expr` scalars as opaque `ValueKind::Expr` runtime results,
+    /// bypassing static type and enum checks without evaluating R. Quarto
+    /// rejects `!r` in cell options, so it stays an ordinary literal.
     Knitr,
 }
 
@@ -218,7 +219,7 @@ fn has_dynamic_tag(scalar: &YamlScalar) -> bool {
         .or_else(|| YamlFlowMapValue::cast(parent.clone()).and_then(|value| value.tag()))
         .or_else(|| YamlBlockSequenceItem::cast(parent.clone()).and_then(|value| value.tag()))
         .or_else(|| YamlFlowSequenceItem::cast(parent).and_then(|value| value.tag()))
-        .is_some_and(|tag| crate::utils::is_knitr_dynamic_tag(tag.text()))
+        .is_some_and(|tag| tag.text() == "!expr")
 }
 
 fn bridge_scalar(scalar: &YamlScalar, base: TextSize, dynamic_tags: DynamicTags) -> SchemaValue {
@@ -318,7 +319,7 @@ mod tests {
             ("key: {nested: !expr height}", true),
             ("key:\n  - !expr height", true),
             ("key: [!expr height]", true),
-            ("key: !r height", true),
+            ("key: !r height", false),
             ("key: height", false),
             ("!expr height: value", false),
         ] {

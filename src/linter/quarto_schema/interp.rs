@@ -44,7 +44,7 @@ pub struct SchemaValue {
 
 #[derive(Debug, Clone)]
 pub enum ValueKind {
-    /// A scalar knitr `!expr` or `!r` in an R cell; its runtime type is not checked statically.
+    /// A scalar knitr `!expr` in an R cell; its runtime type is not checked statically.
     Expr,
     /// A scalar with its resolved YAML 1.2 type and its cooked literal text
     /// (the latter is needed to check `enum` membership).

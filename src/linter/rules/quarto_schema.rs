@@ -313,37 +313,38 @@ mod tests {
 
     #[test]
     fn accepts_knitr_dynamic_expr_without_evaluating_it() {
-        for tag in ["!expr", "!r"] {
-            for (key, expression) in [
-                ("fig-height", "0.3 * n_guidelines + 1.5"),
-                ("fig-height", "'0.28 * panel$k + 1.4'"),
-                ("echo", "show_code"),
-            ] {
-                let input = format!("```{{r}}\n#| {key}: {tag} {expression}\n1\n```\n");
-                let diags = lint(&input, Flavor::Quarto);
-                assert!(diags.is_empty(), "{tag} {key}: {expression}: {diags:?}");
-            }
+        for (key, expression) in [
+            ("fig-height", "0.3 * n_guidelines + 1.5"),
+            ("fig-height", "'0.28 * panel$k + 1.4'"),
+            ("echo", "show_code"),
+        ] {
+            let input = format!("```{{r}}\n#| {key}: !expr {expression}\n1\n```\n");
+            let diags = lint(&input, Flavor::Quarto);
+            assert!(diags.is_empty(), "{key}: {expression}: {diags:?}");
         }
     }
 
     #[test]
     fn dynamic_expr_does_not_hide_invalid_literals_or_sibling_options() {
-        for value in ["\"!expr 1 + 1\"", "!expression wrong", "!R wrong"] {
+        for value in [
+            "\"!expr 1 + 1\"",
+            "!expression wrong",
+            "!R wrong",
+            "!r 1 + 1",
+        ] {
             let input = format!("```{{r}}\n#| fig-height: {value}\n1\n```\n");
             let diags = lint(&input, Flavor::Quarto);
             assert_eq!(diags.len(), 1, "{value}: {diags:?}");
             assert_eq!(diags[0].code, TYPE_MISMATCH);
         }
-        for tag in ["!expr", "!r"] {
-            let input = format!("```{{r}}\n#| fig-height: {tag} height\n#| cache: maybe\n1\n```\n");
-            let diags = lint(&input, Flavor::Quarto);
-            assert_eq!(diags.len(), 1, "{tag}: {diags:?}");
-            assert_eq!(input_at(&diags[0].location.range, &input), "maybe");
-            let input = format!("```{{r}}\n#| eccho: {tag} show_code\n1\n```\n");
-            let unknown = lint_unknown(&input, Flavor::Quarto);
-            assert_eq!(unknown.len(), 1, "{tag}: {unknown:?}");
-            assert_eq!(unknown[0].code, UNKNOWN_KEY);
-        }
+        let input = "```{r}\n#| fig-height: !expr height\n#| cache: maybe\n1\n```\n";
+        let diags = lint(input, Flavor::Quarto);
+        assert_eq!(diags.len(), 1, "{diags:?}");
+        assert_eq!(input_at(&diags[0].location.range, input), "maybe");
+        let input = "```{r}\n#| eccho: !expr show_code\n1\n```\n";
+        let unknown = lint_unknown(input, Flavor::Quarto);
+        assert_eq!(unknown.len(), 1, "{unknown:?}");
+        assert_eq!(unknown[0].code, UNKNOWN_KEY);
     }
 
     #[test]
