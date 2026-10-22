@@ -166,6 +166,10 @@ fn extract_myst_directive_block(node: &SyntaxNode, input: &str) -> Option<CodeSn
     })
 }
 
+pub(crate) fn is_knitr_dynamic_tag(tag: &str) -> bool {
+    matches!(tag, "!expr" | "!r")
+}
+
 fn extract_code_block(node: &SyntaxNode, input: &str) -> Option<CodeSnippet> {
     let block = CodeBlock::cast(node.clone())?;
     let language = block.language()?.trim_start_matches('.').to_string();
@@ -175,7 +179,7 @@ fn extract_code_block(node: &SyntaxNode, input: &str) -> Option<CodeSnippet> {
                 option.key() == "eval"
                     && matches!(option.resolution(), CellOptionResolution::Resolved(value)
                         if !value.is_quoted()
-                            && !matches!(value.yaml_tag(), Some("!expr" | "!r"))
+                            && !value.yaml_tag().is_some_and(is_knitr_dynamic_tag)
                             && value.cooked_value().is_some_and(|text| text.trim().eq_ignore_ascii_case("false")))
             });
             if disabled {

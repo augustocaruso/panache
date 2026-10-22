@@ -203,6 +203,9 @@ mod tests {
             ("{r}\n#| eval: !expr condition", true),
             ("{r}\n#| eval: !expr false", true),
             ("{r, eval=FALSE}\n#| eval: !expr false", true),
+            ("{r}\n#| eval: !r false", true),
+            ("{r}\n#| eval: !expression false", false),
+            ("{r}\n#| eval: !R false", false),
         ];
         for (fence, executes) in cases {
             let input = format!("```{{r}}\nbefore\n```\n\n```{fence}\nexample\n```\n\n`r after`\n");

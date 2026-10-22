@@ -2187,6 +2187,15 @@ Description
     - **Invalid enum values.** A scalar outside a field's allowed set is
       flagged.
 
+    In knitr (R) cell options, an explicit scalar `!expr` or `!r` tag is a dynamic
+    value whose result is known only during execution. Its result type and enum
+    membership are not checked statically; the expression is never evaluated by the
+    linter. Ordinary values and sibling options remain validated, including
+    misspelled keys when the unknown-key rule is enabled. Quoted text containing
+    `!expr` or `!r` is not a dynamic tag. This follows the linter's current per-cell
+    engine selection (R means knitr); document-level engine resolution, including
+    non-R cells executed by knitr, is not supported.
+
     The Quarto schema version the rule validates against can be pinned with
     `[compat] quarto = "1.9"`. One version is currently bundled, so this is
     advisory.
